@@ -1,0 +1,11 @@
+		
+		
+		@x ( address label )
+		&x ( child address label, short for @parent/x )
+		;x ( absolute reference, 2 bytes ) => STA/LDA; JMP2, JCN2
+		,x ( relative reference, 1 byte ) => STR/LDR; JMP, JCN
+
+		.x ( (absolute) zero-page reference, 1 byte ) STZ/LDZ; can't be used in jumps
+		
+		;&x ( absolute reference to child label, 2 bytes ) => STA/LDA; JMP2, JCN2
+		,&x ( relative reference to child label, 1 byte ) => STR/LDR; JMP, JCN
