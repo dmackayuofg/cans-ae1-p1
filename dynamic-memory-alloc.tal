@@ -1,4 +1,8 @@
 (
+    This program will implement the functions malloc() and free() as is seen in C.
+    Created by Drew Mackay, 2652958M.
+)
+(
  Dynamic memory allocation using pages, a bitmap and an allocation map
 )
 
