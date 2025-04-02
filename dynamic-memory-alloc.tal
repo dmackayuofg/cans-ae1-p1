@@ -122,7 +122,32 @@ JMP2r
 
 
 @get_bit ( idx -- bit )
-!todo
+
+    DUP #03 SFT ( idx byte_idx ; python: byte_idx = idx >> 3 )
+
+    DUP #30 SFT ( idx byte_idx byte_idx<<3 )
+    ROT ( byte_idx byte_idx<<3 idx ) DUP ( byte_idx byte_idx<<3 idx idx )
+    ROT ( byte_idx idx idx byte_idx<<3 ) SUB ( byte_idx idx idx-(byte_idx<<3) )
+    #07 ( byte_idx idx idx-(byte_idx<<3) 07 )
+    SWP ( byte_idx idx 07 idx-(byte_idx<<3) )
+    SUB ( byte_idx idx bit_idx ; python: bit_idx = 7-(idx-(byte_idx<<3)) )
+
+    ROT ( idx bit_idx byte_idx )
+    DUP ( idx bit_idx byte_idx byte_idx )
+    ,N_PAGES JSR2 ( idx bit_idx byte_idx byte_idx N_PAGES ; python: N_PAGES )
+    #0001 SUB2 ( idx bit_idx byte_idx byte_idx N_PAGES-1 ; python: N_PAGES-1 )
+    GTH2 not ,&cont JCN ( python: if byte_idx > N_PAGES-1 )
+        #04 .error STZ 
+        JMP2r
+    &cont
+    ( idx bit_idx byte_idx )
+
+    !todo ( idx bit_idx byte ; python: byte = bitmap[byte_idx] )
+
+    SFT #01 AND ( idx bit ; python: bit = (byte >> bit_idx) & 0x01 )
+    NIP ( bit ; clearing stack )
+
+JMP2r ( bit ; python: return bit )
 
 @set_bit ( idx -- )
 !todo
