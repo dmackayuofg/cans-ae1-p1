@@ -104,7 +104,7 @@ JMP2r
     ( snippet: if idx+jj>N_PAGES-1: error=4 )
         &ret_0_error4 
             #04 .error STZ
-            POP2 POP2 POP2 #00 JMP2r
+            POP2 POP2 POP2 #00 JMP2r ( not you may not have to pop in the same way if you used variable-style code )
 JMP2r
 
 ( allocation size is in pages )
@@ -114,7 +114,6 @@ JMP2r
 ( allocation size is in pages )
 @free_alloc_sz_at_idx ( idx* alloc_sz* -: ) 
     !todo
-
 
 @get_bit ( idx -- bit )
 !todo
@@ -154,7 +153,7 @@ JMP2r
 @clear-bitmap
 #0000 ,&idx STR2
 &loop
-,&idx LDR2 #0040 EQU2 ,&done JCN
+,&idx LDR2 N_PAGES #03 SFT2 EQU2 ,&done JCN
 #00 ,&idx LDR2 ;bitmap ADD2 STA
 ,&idx LDR2 INC2 ,&idx STR2
 ,&loop JMP
@@ -165,7 +164,7 @@ JMP2r
 @clear-vmem
 #0000 ,&idx STR2
 &loop
-,&idx LDR2 #1000 EQU2 ,&done JCN
+,&idx LDR2 MAX_ALLOC_SZ EQU2 ,&done JCN
 #00 ,&idx LDR2 ;vmem ADD2 STA
 ,&idx LDR2 INC2 ,&idx STR2
 ,&loop JMP
@@ -245,9 +244,9 @@ JMP2r
 ( The allocation map is in allocation-map.tal )
 @n_allocs 0000
 
- ( N_PAGES bits, packed in bytes mean N_PAGES/8 entries, so with the above, the bitmap will take 64 bytes )
+ ( N_PAGES bits, packed in bytes mean N_PAGES/8 entries, so with the above, the bitmap will take 32 bytes )
  ( 0 means free )
-@bitmap $40
+@bitmap $20
 
 ( The allocation happens below this )
 |f000

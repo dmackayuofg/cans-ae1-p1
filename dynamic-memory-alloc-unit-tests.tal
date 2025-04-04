@@ -184,6 +184,7 @@ JMP2r
 { 0014 "Test 20 "for 20 "malloc(sz) 0a } STH2r print-str
     reset
     MAX_ALLOC_SZ malloc ;&ptr STA2
+    ;&ptr LDA2 #0000 NEQ2 print-bit nl
     ;&ptr LDA2 free
     get-error #00 EQU ,&cont JCN
         #00 print-bit nl
