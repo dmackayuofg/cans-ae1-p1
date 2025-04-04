@@ -154,8 +154,21 @@ JMP2r
 JMP2r ( bit ; python: return bit )
 
 @set_bit ( idx -- )
-!todo
 
+    DUP #03 SFT ( idx byte_idx ; python: byte_idx = idx >> 3 )
+
+    DUP #30 SFT ( idx byte_idx byte_idx<<3 )
+    ROT ( byte_idx byte_idx<<3 idx )
+    DUP ( byte_idx byte_idx<<3 idx idx )
+    ROT ( byte_idx idx idx byte_idx<<3 )
+    ADD ( byte_idx idx idx+(byte_idx<<3) )
+    #07 ( byte_idx idx idx-(byte_idx<<3) 07 )
+    SWP ( byte_idx idx 07 idx-(byte_idx<<3) )
+    SUB ( byte_idx idx bit_idx ; python: bit_idx = 7-(idx+byte_idx<<3) )
+
+    ;bitmap ( idx bit_idx bitmap_start_address byte_idx )
+    ADD2 ( idx bit_idx bitmap_byte_idx_offset_address )
+    LDA ( idx bit_idx byte ; python: byte = bitmap[byte_idx] )
 @clear_bit ( idx -- )
 !todo
 
