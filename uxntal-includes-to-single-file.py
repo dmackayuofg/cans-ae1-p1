@@ -10,6 +10,8 @@ DBG = False
 seenSources = {}
 programFile=sys.argv[1]
 
+outputFile = "output.tal"
+output_lines = []
 
 def includeSource(src):
     programText = Path(src).read_text()
@@ -22,5 +24,8 @@ def includeSource(src):
                 seenSources[inc]=True
         else:
             print(line)
+            output_lines.append(line)
 
 includeSource(programFile)
+
+Path(outputFile).write_text('\n'.join(output_lines))

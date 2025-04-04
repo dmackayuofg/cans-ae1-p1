@@ -1,0 +1,1 @@
+set_bit implementation. can i avoid using mask_set and do it myself
