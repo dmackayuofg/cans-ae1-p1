@@ -22,7 +22,7 @@ test-free
 BRK
 
 ( define your tests here )
-test-get_bit
+
 
 @test-mask_clear ( -- )
     { 001d "Test 20 "for 20 "mask_clear(bit_idx) 0a } STH2r print-str

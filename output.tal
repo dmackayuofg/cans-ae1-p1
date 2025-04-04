@@ -1,0 +1,1101 @@
+( Unit tests for dynamic memory allocation code )
+
+(
+ Dynamic memory allocation using pages, a bitmap and an allocation map
+)
+
+|0000
+@n_pages $2
+@bit_idx $2
+( I suggest you use the zero page for temporary storage )
+( all your allocations here )
+@error $1 ( this should be last )
+
+|0100
+( unit tests )
+test-mask_clear
+test-mask_set
+test-get_bit
+test-clear_bit 
+test-set_bit 
+
+set-bitmap-B
+
+test-alloc_sz_is_free_at_idx
+test-claim_alloc_sz_at_idx
+test-free_alloc_sz_at_idx
+
+test-malloc
+test-free
+
+BRK
+
+( define your tests here )
+
+
+@test-mask_clear ( -- )
+    { 001d "Test 20 "for 20 "mask_clear(bit_idx) 0a } STH2r print-str
+    #0000 mask_clear ( 1111 1110 ) #fe EQU #30 ADD #18 DEO #0a18 DEO
+    #0001 mask_clear ( 1111 1101 ) #fd EQU #30 ADD #18 DEO #0a18 DEO
+    #0002 mask_clear ( 1111 1011 ) #fb EQU #30 ADD #18 DEO #0a18 DEO
+    #0003 mask_clear ( 1111 0111 ) #f7 EQU #30 ADD #18 DEO #0a18 DEO
+    #0004 mask_clear ( 1110 1111 ) #ef EQU #30 ADD #18 DEO #0a18 DEO
+    #0005 mask_clear ( 1101 1111 ) #df EQU #30 ADD #18 DEO #0a18 DEO
+    #0006 mask_clear ( 1011 1111 ) #bf EQU #30 ADD #18 DEO #0a18 DEO
+    #0007 mask_clear ( 0111 1111 ) #7f EQU #30 ADD #18 DEO #0a18 DEO
+JMP2r
+
+@test-mask_set ( -- )
+    { 001b "Test 20 "for 20 "mask_set(bit_idx) 0a } STH2r print-str
+    #0000 mask_set ( 0000 0001 ) #01 EQU #30 ADD #18 DEO #0a18 DEO
+    #0001 mask_set ( 0000 0010 ) #02 EQU #30 ADD #18 DEO #0a18 DEO
+    #0002 mask_set ( 0000 0100 ) #04 EQU #30 ADD #18 DEO #0a18 DEO
+    #0003 mask_set ( 1111 0111 ) #08 EQU #30 ADD #18 DEO #0a18 DEO
+    #0004 mask_set ( 1110 1111 ) #10 EQU #30 ADD #18 DEO #0a18 DEO
+    #0005 mask_set ( 1101 1111 ) #20 EQU #30 ADD #18 DEO #0a18 DEO
+    #0006 mask_set ( 1011 1111 ) #40 EQU #30 ADD #18 DEO #0a18 DEO
+    #0007 mask_set ( 0111 1111 ) #80 EQU #30 ADD #18 DEO #0a18 DEO
+JMP2r
+
+( 1/ test with 8 bytes in different locations with a different bit set )
+( 2/ test with 8 bytes in different locations with multiple bits set )
+( In both cases, read bits that are set and not set )
+@test-get_bit ( -- )
+    { 0016 "Test 20 "for 20 "get_bit(idx) 0a } STH2r print-str
+    ( 
+    #01 ;bitmap #0001 ADD2 STA ( positions: 16=1,15=0 )
+    #80 ;bitmap #0003 ADD2 STA ( positions: 24=1,25=0 )
+    #02 ;bitmap #0004 ADD2 STA ( positions: 38=1,39=0 )
+    #60 ;bitmap #0008 ADD2 STA ( positions: 65=1,66=1 )
+    #04 ;bitmap #000c ADD2 STA ( positions: 101=1,102=0 )
+    #20 ;bitmap #000d ADD2 STA ( position: 106=1,107=0 )
+    )
+    set-bitmap-A
+
+    #0010 get_bit #00 EQU #000f get_bit #01 EQU AND print-bit nl
+    #0018 get_bit #01 EQU #0019 get_bit #00 EQU AND print-bit nl
+    #0026 get_bit #01 EQU #0027 get_bit #00 EQU AND print-bit nl
+    #0041 get_bit #01 EQU #0042 get_bit #01 EQU AND print-bit nl
+    #0065 get_bit #01 EQU #0066 get_bit #00 EQU AND print-bit nl
+    #006a get_bit #01 EQU #006b get_bit #00 EQU AND print-bit nl
+
+    set-bitmap-B
+
+    #0010 get_bit #00 EQU #000f get_bit #01 EQU AND print-bit nl
+    #0018 get_bit #01 EQU #0019 get_bit #01 EQU AND print-bit nl
+    #0026 get_bit #01 EQU #0025 get_bit #01 EQU AND print-bit nl
+    #0041 get_bit #01 EQU #0042 get_bit #01 EQU AND print-bit nl
+    #0064 get_bit #01 EQU #0065 get_bit #01 EQU AND print-bit nl
+    #006a get_bit #01 EQU #006b get_bit #01 EQU AND print-bit nl
+
+JMP2r
+
+@test-clear_bit ( -- )
+    { 0018 "Test 20 "for 20 "clear_bit(idx) 0a } STH2r print-str
+    #000f clear_bit #000e clear_bit
+    #0018 clear_bit #0019 clear_bit
+    #0026 clear_bit #0027 clear_bit
+    #0041 clear_bit #0042 clear_bit
+    #0065 clear_bit #0066 clear_bit
+    #006a clear_bit #006b clear_bit
+
+    #000f get_bit #00 EQU #000e get_bit #00 EQU AND print-bit nl
+    #0018 get_bit #00 EQU #0019 get_bit #00 EQU AND print-bit nl
+    #0026 get_bit #00 EQU #0027 get_bit #00 EQU AND print-bit nl
+    #0041 get_bit #00 EQU #0042 get_bit #00 EQU AND print-bit nl
+    #0065 get_bit #00 EQU #0066 get_bit #00 EQU AND print-bit nl
+    #006a get_bit #00 EQU #006b get_bit #00 EQU AND print-bit nl
+JMP2r
+
+@test-set_bit ( -- )
+    { 0016 "Test 20 "for 20 "set_bit(idx) 0a } STH2r print-str
+    #000f set_bit #000e set_bit
+    #0018 set_bit #0019 set_bit
+    #0026 set_bit #0027 set_bit
+    #0041 set_bit #0042 set_bit
+    #0065 set_bit #0066 set_bit
+    #006a set_bit #006b set_bit
+
+    #000f get_bit #01 EQU #000e get_bit #01 EQU AND print-bit nl
+    #0018 get_bit #01 EQU #0019 get_bit #01 EQU AND print-bit nl
+    #0026 get_bit #01 EQU #0027 get_bit #01 EQU AND print-bit nl
+    #0041 get_bit #01 EQU #0042 get_bit #01 EQU AND print-bit nl
+    #0065 get_bit #01 EQU #0066 get_bit #01 EQU AND print-bit nl
+    #006a get_bit #01 EQU #006b get_bit #01 EQU AND print-bit nl
+JMP2r
+
+@test-alloc_sz_is_free_at_idx ( -- )
+    { 002f "Test 20 "for 20 "alloc_sz_is_free_at_idx(idx,alloc_sz) 0a } STH2r print-str 
+( All 0 )
+    { 0006 "part1 0a } STH2r print-str
+     #000f #0001 alloc_sz_is_free_at_idx #00 EQU print-bit nl
+     #000f #0002 alloc_sz_is_free_at_idx #00 EQU print-bit nl
+     #000f #0004 alloc_sz_is_free_at_idx #00 EQU print-bit nl
+     #000f #0008 alloc_sz_is_free_at_idx #00 EQU print-bit nl
+     #000f #0010 alloc_sz_is_free_at_idx #00 EQU print-bit nl
+     { 0006 "part2 0a } STH2r print-str 
+( Last is 0 because 24 is set )
+     #0010 #0001 alloc_sz_is_free_at_idx #01 EQU print-bit nl
+     #0010 #0002 alloc_sz_is_free_at_idx #01 EQU print-bit nl
+     #0010 #0004 alloc_sz_is_free_at_idx #01 EQU print-bit nl
+     #0010 #0008 alloc_sz_is_free_at_idx #01 EQU print-bit nl
+     #0010 #0010 alloc_sz_is_free_at_idx #00 EQU print-bit nl
+     { 0006 "part3 0a } STH2r print-str 
+( 11100 because 24 is set )
+     #0011 #0001 alloc_sz_is_free_at_idx #01 EQU print-bit nl
+     #0011 #0002 alloc_sz_is_free_at_idx #01 EQU print-bit nl
+     #0011 #0004 alloc_sz_is_free_at_idx #01 EQU print-bit nl
+     #0011 #0008 alloc_sz_is_free_at_idx #00 EQU print-bit nl
+     #0011 #0010 alloc_sz_is_free_at_idx #00 EQU print-bit nl
+     { 0006 "part4 0a } STH2r print-str 
+( All one )
+    #006c #0001 alloc_sz_is_free_at_idx #01 EQU print-bit nl
+    #006c #0002 alloc_sz_is_free_at_idx #01 EQU print-bit nl
+    #006c #0004 alloc_sz_is_free_at_idx #01 EQU print-bit nl
+    #006c #0008 alloc_sz_is_free_at_idx #01 EQU print-bit nl
+    #006c #0010 alloc_sz_is_free_at_idx #01 EQU print-bit nl
+JMP2r
+
+@test-claim_alloc_sz_at_idx ( -- )
+    { 002d "Test 20 "for 20 "claim_alloc_sz_at_idx(idx,alloc_sz) 0a } STH2r print-str
+    ( claim alloc of 1,2,3,4,5 starting at 0 )
+    ;bitmap LDA2 STH2 ( stash first 2 bytes )
+    { 0006 "part1 0a } STH2r print-str
+    #0000 ;bitmap STA2 ( clear the bitmap's first 2 bytes ) 
+    ( print-bitmap nl )
+    #0000 #0001 claim_alloc_sz_at_idx ( 1000 000 )
+    ;bitmap LDA DUP print8 ws #80 EQU print-bit nl ( OK )
+    #0001 #0002 claim_alloc_sz_at_idx ( 1110 0000, is 1100 0000 )
+    ;bitmap LDA DUP print8 ws #e0 EQU print-bit nl ( c0 instead of e0, i.e. 1100 0000 i.o. 1110 0000  )
+    #0003 #0003 claim_alloc_sz_at_idx ( 1111 1100, is 1101 1100 )
+    ;bitmap LDA DUP print8 ws #fc EQU print-bit nl 
+    #0006 #0004 claim_alloc_sz_at_idx ( 1111 1111 1100 0000 , is 1101 1111 1000 0000 )
+    ;bitmap LDA DUP print8 ws
+    ;bitmap INC LDA DUP print8 ws #ffc0 EQU2 print-bit nl 
+    #000a #0005 claim_alloc_sz_at_idx ( 1111 1111 1111 1110 , is 1101 1111 1010 1010 )
+    ;bitmap LDA DUP print8 ws
+    ;bitmap INC LDA DUP print8 ws #fffe EQU2 print-bit nl 
+    ( restore to previous state )
+    STH2r ;bitmap STA2
+    { 0006 "part2 0a } STH2r print-str
+    #006c #0010 claim_alloc_sz_at_idx
+    #007c #0010 alloc_sz_is_free_at_idx #01 EQU print-bit nl
+    #006c #0010 alloc_sz_is_free_at_idx #00 EQU print-bit nl
+JMP2r
+
+@test-free_alloc_sz_at_idx ( -- ) 
+    { 002c "Test 20 "for 20 "free_alloc_sz_at_idx(idx,alloc_sz) 0a } STH2r print-str
+    #006c #0010 free_alloc_sz_at_idx
+    #007c #0010 alloc_sz_is_free_at_idx print-bit nl
+    #006c #0010 alloc_sz_is_free_at_idx print-bit nl
+JMP2r
+
+@test-malloc
+{ 0014 "Test 20 "for 20 "malloc(sz) 0a } STH2r print-str
+    reset
+    MAX_ALLOC_SZ malloc ;&ptr STA2
+    ;&ptr LDA2 #0000 NEQ2 print-bit nl
+    ;&ptr LDA2 free
+    get-error #00 EQU ,&cont JCN
+        #00 print-bit nl
+    &cont
+
+    reset
+    MAX_ALLOC_SZ #0002 MUL2 INC2 malloc ;&ptr STA2
+    ;&ptr LDA2 #0000 EQU2 get-error #07 EQU AND print-bit nl
+
+    reset
+    #0000 malloc ;&ptr STA2
+    ;&ptr LDA2 #0000 EQU2 get-error #01 EQU AND  print-bit nl
+     
+    #0001 malloc ;&ptr STA2 
+    ;&ptr LDA2 #0000 NEQ2 get-error #00 EQU AND print-bit nl
+
+    #0010 malloc ;&ptr STA2 
+    ;&ptr LDA2 free
+    get-error #00 EQU print-bit nl
+JMP2r
+&ptr $2
+
+@test-free
+{ 0013 "Test 20 "for 20 "free(ptr) 0a } STH2r print-str
+    reset
+    #0000 free
+    get-error #02 EQU print-bit nl 
+
+    reset
+    DMEM_START free
+    get-error #06 EQU print-bit nl
+
+    DMEM_START #0001 SUB2 free
+    get-error #02 EQU print-bit nl
+
+    #ffff free
+    get-error #06 EQU print-bit nl
+
+    #0010 malloc ;&ptr STA2
+    ;&ptr LDA2 free
+    get-error #00 EQU print-bit nl
+
+JMP2r
+&ptr $2
+
+@set-bitmap-A
+    #01 ;bitmap #0001 ADD2 STA 
+    #80 ;bitmap #0003 ADD2 STA 
+    #02 ;bitmap #0004 ADD2 STA 
+    #60 ;bitmap #0008 ADD2 STA 
+    #04 ;bitmap #000c ADD2 STA 
+    #20 ;bitmap #000d ADD2 STA 
+JMP2r
+
+@set-bitmap-B
+    #03 ;bitmap #0001 ADD2 STA ( positions: 16=0,15=1 )
+    #c0 ;bitmap #0003 ADD2 STA ( positions: 24=1,25=1 )
+    #07 ;bitmap #0004 ADD2 STA ( positions: 37=1,38=1 )
+    #60 ;bitmap #0008 ADD2 STA ( positions: 65=0,66=1 )
+    #0e ;bitmap #000c ADD2 STA ( positions: 100=1,101=1 )
+    #30 ;bitmap #000d ADD2 STA ( position: 106=1,107=1 )
+JMP2r
+
+
+
+( ==================================================== )
+
+(
+    This program will implement the functions malloc() and free() as is seen in C.
+    Created by Drew Mackay, 2652958M.
+)
+
+(
+ Dynamic memory allocation using pages, a bitmap and an allocation map
+)
+
+( This is the suggested code skeleton for AE1
+  it also provides helper functions for printing
+
+  Replace `!todo` with your implementation for each function, 
+  based on the Python reference
+
+  "snippet" means a bit of code that you can use in your solution
+)
+
+(
+  Rename this file to 
+    dynamic-memory-alloc.tal
+)
+
+( zero page declarations should go into
+    dynamic-memory-alloc-decls.tal
+)
+
+( definitions of malloc, free and functions used to implement them )
+@malloc ( n_bytes* -- <allocation in bytes> )
+    ( You are free to change this part but there should be no need )
+    #00 .error STZ
+    DUP2 ( n_bytes* n_bytes* )
+    DUP2 ( n_bytes* n_bytes* n_bytes* )
+    #0000 NEQ2 ,&cont1 JCN
+        POP2 POP2
+        #01 .error STZ
+        #0000 JMP2r 
+    &cont1 ( n_bytes* n_bytes* )
+    #0001 SUB2 PAGE_SZ DIV2 #0001 ADD2 .n_pages STZ2 ( n_bytes* n_pages = ((n_bytes-1) // PAGE_SZ) + 1 )
+    .n_pages LDZ2 N_PAGES GTH2 not ,&cont2 JCN ( n_pages>N_PAGES )
+        POP2
+        #07 .error STZ
+        #0000 JMP2r 
+    &cont2
+    #0000 ;&idx STA2 ( n_bytes* ) ( idx=0 )
+
+    !todo ( loop over idx )
+
+    ( the following snippets are for error handling )
+            
+            ( snippet: error > 0 )
+            .error LDZ #00 EQU ,&cont3 JCN
+                #0000 JMP2r
+            &cont3
+            
+            ( snippet: n_allocs == MAX_N_ALLOCS )
+            ;n_allocs LDA2 DUP2 MAX_N_ALLOCS NEQ2 ,&cont4 JCN
+                #05 .error STZ
+                #0000 JMP2r
+            &cont4
+
+    ( snippet: allocated[ptr]=n_bytes )
+        insert-ptr POP ( lazy, ignore return status )
+JMP2r
+&idx $2
+
+@free ( ptr* -- )
+    ( You are free to change this part but there should be no need )
+    DUP2 ;&ptr STA2 ( ptr* )
+    DMEM_START SUB2 PAGE_SZ DIV2 ( idx* = (ptr-DMEM_START) // PAGE_SZ )
+    ( if idx<0 or idx>N_PAGES-1: error=2 )
+    DUP2 DUP2 ( idx* idx* idx* )
+    #0000 LTH2 ( idx* idx* idx<0 )
+    ROT ROT ( idx* idx<0 idx* )
+    N_PAGES #0001 SUB2 GTH2 ( idx* idx<0 idx>N_PAGES-1 )
+    ORA not ,&cont JCN ( idx* )
+        #02 .error STZ
+        JMP2r
+    &cont ( idx* )
+    ( this corresponds to 
+        if ptr in allocated
+    )
+    ;&ptr LDA2 lookup-ptr
+    ( check if lookup-ptr returned 0000 
+        if so, error=0 else error=6
+    )
+    DUP2 #0000 EQU2 ,&error6 JCN ( idx* n_bytes* )
+    #00 .error STZ
+
+    !todo
+
+    ( snippet: )
+    ( this corresponds to 
+        del allocated[ptr]
+    )
+    ;&ptr LDA2 delete-ptr
+
+    ( You are free to change this part but there should be no need )
+    JMP2r
+    &error6 
+        #06 .error STZ 
+    JMP2r
+&ptr $2   
+
+( allocation size is in pages )
+( idx:16 alloc_sz:16 -- 00 or 01 )
+@alloc_sz_is_free_at_idx ( idx* alloc_sz* -: b )
+    !todo
+    ( snippet: if idx+jj>N_PAGES-1: error=4 )
+        &ret_0_error4 
+            #04 .error STZ
+            POP2 POP2 POP2 #00 JMP2r ( note you may not have to pop in the same way if you used variable-style code )
+JMP2r
+
+( allocation size is in pages )
+@claim_alloc_sz_at_idx ( idx* alloc_sz* -: ) 
+    !todo
+
+( allocation size is in pages )
+@free_alloc_sz_at_idx ( idx* alloc_sz* -: ) 
+    !todo
+
+@get_bit ( idx -- bit )
+
+    DUP2 #03 SFT2 ( idx byte_idx ; python: byte_idx = idx >> 3 )
+
+    DUP2 #30 SFT2 ( idx byte_idx byte_idx<<3 )
+    ROT2 ( byte_idx byte_idx<<3 idx )
+    DUP2 ( byte_idx byte_idx<<3 idx idx )
+    ROT2 ( byte_idx idx idx byte_idx<<3 )
+    SUB2 ( byte_idx idx idx-byte_idx<<3 )
+    #0007 ( byte_idx idx idx-byte_idx<<3 0007 )
+    SWP2 ( byte_idx idx 0007 idx-byte_idx<<3 )
+    SUB2 ( byte_idx idx bit_idx ; python: bit_idx = 7-idx-byte_idx<<3 )
+
+    ROT2 ( idx bit_idx byte_idx )
+    DUP2 ( idx bit_idx byte_idx byte_idx )
+    N_PAGES ( idx bit_idx byte_idx byte_idx N_PAGES ; python: N_PAGES )
+    #0001 SUB2 ( idx bit_idx byte_idx byte_idx N_PAGES-1 ; python: N_PAGES-1 )
+    GTH2 not ,&cont JCN ( python: if byte_idx > N_PAGES-1 )
+        #04 .error STZ 
+        JMP2r
+    &cont
+    ( idx bit_idx byte_idx )
+
+    ;bitmap ( idx bit_idx byte_idx bitmap_start_address )
+    ADD2 ( idx bit_idx bitmap_byte_idx_offset_address )
+    LDA ( idx bit_idx byte ; python: byte = bitmap[byte_idx] )
+
+    ROT POP ( idx bit_idx_1b byte )
+    SWP ( idx byte bit_idx_1b )
+    SFT ( idx byte>>bit_idx )
+    #01 AND ( idx bit ; python: bit = byte >> bit_idx & 0x01 )
+    #00 ( idx_2b bit_1b 00 )
+    NIP2 ( bit_1b 00 )
+    POP  ( bit_1b ; cleaning stack )
+
+JMP2r ( bit ; python: return bit )
+
+@set_bit ( idx -- )
+    
+
+
+
+JMP2r
+
+@clear_bit ( idx -- )
+!todo
+
+@mask_clear ( bit_idx* -: mask )
+.bit_idx STZ2 #ff [ #01 .bit_idx LDZ2 NIP #40 SFT SFT ] EOR
+JMP2r
+
+@mask_set ( bit_idx* -: mask )
+.bit_idx STZ2
+#01 .bit_idx LDZ2 NIP #40 SFT SFT
+JMP2r
+
+(
+@mask_set_value ( bit_idx -: mask )
+    #01 SWP ( 01 bit_idx ) 
+    #10 MUL ( 01 bit_idx*16 )
+    SFT ( 01>>(bit_idx*16) ; equivalent to, i hope, 01<<bit_idx )
+JMP2r
+)
+
+( ==================================================== )
+( Functions for handling the allocation dictionary )
+( Also contains the map of allocated pointers and their sizes )
+( ==================================================== )
+( Functions for handling the allocation dictionary )
+
+@clear-allocation
+#0000 ;&i STA2
+&loop
+;&i LDA2 #0080 EQU2 ,&done JCN ( stop when the map is full ) ( alloc_sz* ptr* )
+    #0000 ;&i LDA2 ;allocated ADD2 STA2
+    #0000 ;&i LDA2 #0002 ADD2 ;allocated ADD2 STA2
+    ;&i LDA2 #0004 ADD2 ;&i STA2 
+,&loop JMP
+&done
+JMP2r
+&i $2
+
+@insert-ptr ( alloc_sz* ptr* -: bool )
+#0000 ;&i STA2 ( -- )
+&loop 
+    ;&i LDA2 #0080 EQU2 ,&full JCN ( stop when the map is full ) ( alloc_sz* ptr* )
+    ;&i LDA2 ;allocated ADD2 DUP2 LDA2 #0000 NEQ2 ,&cont JCN ( check if a slot in the map is free ) ( alloc_sz* ptr* allocated+i* )
+        DUP2 ( alloc_sz* ptr* allocated+i* allocated+i* )
+        ROT2 ROT2 ( alloc_sz* allocated+i* ptr* allocated+i* )
+        STA2 ( stores ptr* at allocated+i ) ( alloc_sz* allocated+i* )
+        #0002 ADD2 
+        STA2 ( stores alloc_sz* at allocated+i+2 ) ( -- )
+        ,&done JMP
+    &cont
+        POP2 ( alloc_sz* ptr* )
+    ;&i LDA2 #0004 ADD2 ;&i STA2 
+,&loop JMP
+&done
+#01 JMP2r
+&full
+POP2 POP2
+#00 JMP2r
+&i $2
+
+@exists-ptr ( ptr* -: bool )
+#0000 ;&i STA2 
+&loop 
+    ;&i LDA2 #0080 EQU2 ,&full JCN 
+    DUP2 ( ptr ptr )
+    ;&i LDA2 ;allocated ADD2 LDA2 
+    EQU2 ,&done JCN
+    ;&i LDA2 #0004 ADD2 ;&i STA2 
+,&loop JMP
+&done
+POP2
+#01 JMP2r
+&full
+POP2
+#00 JMP2r
+&i $2 
+
+@lookup-ptr ( ptr* -: alloc_sz* )
+#0000 ;&i STA2 
+&loop 
+    ;&i LDA2 #0080 EQU2 ,&full JCN 
+    DUP2 ( ptr ptr )
+    ;&i LDA2 ;allocated ADD2 DUP2 LDA2 ( ptr ptr allocated+i ptr_idx_LDA2 )
+    ROT2 EQU2 ,&done JCN ( ptr allocated+i )
+    POP2
+    ;&i LDA2 #0004 ADD2 ;&i STA2 
+,&loop JMP
+&done
+#0002 ADD2 LDA2 NIP2
+JMP2r
+&full
+#0000 
+JMP2r
+&i $2
+
+@delete-ptr ( ptr* -: bool )
+#0000 ;&i STA2 
+&loop 
+    ;&i LDA2 #0080 EQU2 ,&full JCN 
+    DUP2 ( ptr ptr )
+    ;&i LDA2 ;allocated ADD2 DUP2 LDA2 ROT2 EQU2 ,&done JCN ( allocated+i )
+    POP2
+    ;&i LDA2 #0004 ADD2 ;&i STA2 
+,&loop JMP
+&done
+DUP2 ( ptr allocated+i allocated+i )
+#0002 ADD2 ( ptr allocated+i allocated+i+2 )
+#0000 SWP2 STA2 ( ptr allocated+i )
+#0000 SWP2 STA2 ( ptr )
+POP2
+#01 JMP2r
+&full
+POP2
+#00 JMP2r
+&i $2
+
+@allocated $80 ( 32 tuples of the page idx and the alloc size )
+
+( ==================================================== )
+( Functions for printing )
+( A library of functions fmt-* to format numbers as strings
+The result is put on the WS. 
+The functions print-* and memwrite-* 
+use helpers proc-n-items-from-ws* 
+to take the string from the stack
+
+requires range-map-fold-lib.tal for range-map-short
+
+)
+
+BRK
+
+( unsigned decimal number of up to 5 digits )
+( so these digits are reversed on the stack )
+( this is the order to print them )
+( x:16 -> d[0] .. d[4] #05  )
+@fmt-dec-short
+    DUP2 n-dec-digits-in-short ( x:16 n-dig:8 )
+    DUP #01 EQU ?&done ( only one digit => done )
+    ,&n-dig STR ( more than one, store it in n-dig )
+    #01 ( x:16 1:8 ) ( d[0] xd10 2 )
+    &loop
+    ROT ROT ( 1 x ) ( d[0] 2 xd10 )
+    DUP2 ( ct:8 x:16 x:16 ) ( 1 x x ) ( d[0] 2 xd10 xd10 )
+    #000a DIV2 DUP2 ( ct:8 x:16 xd10:16 xd10:16 )
+    #000a MUL2 ( ct:8 x:16 xd10:16 xr:16 )
+    ROT2 SWP2 ( ct:8 xd10:16 x:16 xr:16 )
+    SUB2 ( ct:8 xd10:16 d[0]:16 )
+    NIP #30 ADD ( ct:8 xd10:16 dl[0]:8 ) ( 1 xd d[0] ) ( d[0] 2 xd100 d[1] )
+    ( we need d[0] ct:8 )
+    ROT ROT ( ct:8 dl[0]:8 xd10:16 ) ( d[0] 2 d[1] xd100  )
+    SWP2 SWP SWP2 ( dl[0]:8 ct:8 xd10:16 ) ( d[0] d[1] 2 xd100  )
+    ROT INC DUP  ( dl[0]:8 xd10:16 ct:8+1  )
+    ( if ct<5 jump )
+    ( #05  )
+    LIT &n-dig $1 
+    LTH ?&loop ( dl[0]:8 xd10:16 2:8 )
+    &done
+    ROT ROT NIP #30 ADD SWP
+JMP2r
+
+( unsigned decimal number of up to 3 digits )
+( so these digits are reversed on the stack )
+( this is the order to print them )
+( x:8 -> d[0] d[1] d[2] #03  )
+@fmt-dec-byte
+    #00 SWP fmt-dec-short
+JMP2r
+
+@fmt-hex-byte
+    #00 SWP ( 00 x = x:16 )
+    #01 ( x:16 1:8 )
+    &loop
+    ROT ROT ( 1 x:16 ) ( d[0] 2 xd10 )
+    DUP2 ( ct:8 x:16 x:16 ) ( 1 x x ) ( d[0] 2 xd10 xd10 )
+    #0010 DIV2 DUP2 ( ct:8 x:16 xd10:16 xd10:16 )
+    #0010 MUL2 ( ct:8 x:16 xd10:16 xr:16 )
+    ROT2 SWP2 ( ct:8 xd10:16 x:16 xr:16 )
+    SUB2 ( ct:8 xd10:16 d[0]:16 )
+    NIP h2a ( ct:8 xd10:16 d[0]:8 ) ( 1 xd d[0] ) ( d[0] 2 xd100 d[1] )
+    ( we need d[0] ct:8 )
+    ROT ROT ( ct:8 d[0]:8 xd10:16 ) ( d[0] 2 d[1] xd100  )
+    SWP2 SWP SWP2 ( d[0]:8 ct:8 xd10:16 ) ( d[0] d[1] 2 xd100  )
+    ROT INC DUP  ( d[0]:8 xd10:16 ct:8+1  )
+    ( if ct<4    jump )
+    #02 LTH ?&loop ( d[0] xd10 2 )
+    ROT ROT NIP h2a SWP
+JMP2r
+
+@fmt-hex-byte-BAD
+    #01 ( x 1 )
+    &loop
+    SWP ( 1 x ) ( d[0] 2 xd10 )
+    DUP ( ct:8 x:8 x:8 ) ( 1 x x ) ( d[0] 2 xd10 xd10 )
+    #10 DIV DUP ( ct:8 x:8 xd10:8 xd10:8 )
+    #10 MUL ( ct:8 x:8 xd10:8 xr:8 )
+    ROT SWP ( ct:8 xd10:8 x:8 xr:8 )
+    SUB ( ct:8 xd10:8 d[0]:8 )
+    h2a ( ct:8 xd10:8 da[0]:8 ) ( 1 xd d[0] ) ( d[0] 2 xd100 d[1] )
+    ( we need d[0] ct:8 )
+    ROT ROT ( da[0]:8 ct:8 xd10:8 ) ( d[0] 2 d[1] xd100  )
+    INC DUP  ( da[0]:8 xd10:8 ct:8+1 ct+1 )
+    ( if ct<4    jump )
+    #02 LTH ?&loop ( da[0] xd10 2 )
+    ROT ROT NIP h2a SWP
+JMP2r
+
+( print a 2-byte "short" word as hex )
+@fmt-hex-short
+    ( b1 b2 )
+    fmt-hex-byte ( b1 a22 a21 #02 )
+    POP ROT ( a22 a21 b1 )
+    fmt-hex-byte ( a22 a21 a12 a11 #02 )
+    #02 ADD
+    JMP2r
+
+( assumes n items on WS, followed by n:8, then a pointer to proc )
+( proc takes a value and an iterator: v:sz i:8 proc:16 )
+@proc-n-items-from-ws-with-iter
+    ( x_1 ... x_n n ;proc* )
+    ROT ( x_1 ... x_n n ;proc* n )
+    ,&n STR #00 ROT ROT
+    #00 STHk ( x_1 ... x_n n ;proc* 0 | 0 )
+    &loop
+        LIT &n $1 EQU ?&end ( x_1 ... x_n n ;proc* | n )
+        STH2k ( x_1 ... x_n n ;proc* | n ;proc* )
+        JSR2 ( x_1 ... x_n-1 | n ;proc* )
+        STH2r ( x_1 ... x_n-1 ;proc* | n )
+        STHr #01 ADD STHk ( x_1 ... x_n-1 ;proc* n-1 | n-1 )
+        ROT ROT OVR2 NIP ( x_1 ... x_n-1 n-1 ;proc* n-1 | n-1 )
+    !&loop
+    &end
+    POPr ( removes the n from the RST )
+    POP2 ( removes ;proc* from the WST )
+    POP ( removes n from the WST; is this correct? )
+JMP2r
+
+( x_1 ... x_n n ;proc* )
+( proc should not return anything on the WS )
+@proc-n-items-from-ws
+    ROT STHk ( x_1 ... x_n ;proc* n | n )
+    &loop
+        #00 EQU ?&end ( x_1 ... x_n ;proc* | n )
+        STH2k ( x_1 ... x_n ;proc* | n ;proc* )
+        JSR2 ( x_1 ... x_n-1 | n ;proc* )
+        STH2r ( x_1 ... x_n-1 ;proc* | n )
+        STHr #01 SUB STHk ( x_1 ... x_n-1 ;proc* n-1 | n-1 )
+    !&loop
+    &end
+    POPr
+    POP2
+JMP2r
+
+@print-int
+DUP2 #0000 EQU2 ?&zero
+fmt-dec-short
+{ #18 DEO JMP2r } STH2r !proc-n-items-from-ws
+&zero
+POP2 #3018 DEO JMP2r
+
+@print-int-stderr
+DUP2 #0000 EQU2 ?&zero
+fmt-dec-short { #19 DEO JMP2r } STH2r !proc-n-items-from-ws
+&zero
+POP2 #3019 DEO JMP2r
+
+@print-hex
+fmt-hex-short { #18 DEO JMP2r } STH2r !proc-n-items-from-ws
+
+@print-hex-2
+#02 SUB
+fmt-hex-short { #18 DEO JMP2r } STH2r proc-n-items-from-ws 
+( we only retain 2 characters, so we should remove 2 bytes )
+( a b c d NIP2 )
+NIP2 JMP2r
+
+@print-hex-3
+fmt-hex-short { #18 DEO JMP2r } STH2r proc-n-items-from-ws
+( a b c d SWP2 NIP ROT ROT )
+SWP2 NIP ROT ROT JMP2r
+
+@print-hex-1
+fmt-hex-short { #18 DEO JMP2r } STH2r proc-n-items-from-ws
+NIP2 NIP JMP2r
+
+@print-hex-stderr
+fmt-hex-short { #19 DEO JMP2r } STH2r !proc-n-items-from-ws
+
+( take b and write to addr + i where addr is the start of the byte string, so str+2 )
+( b:8 i:8 addr:16 -- )
+@write-byte-to-string-at-addr
+    ROT #00 SWP ( v:8 addr:16 i:16 )
+    ADD2 #0002 ADD2
+    STA ( stores v at addr+i ; addr+i=v:8 )
+JMP2r
+
+( take b and write to addr + i where addr is the start of the byte string, so str+2 )
+( b:8 i:8 addr:16 -- )
+@write-byte-to-mem-at-addr
+    ROT #00 SWP ( v:8 addr:16 i:16 )
+    ADD2
+    STA ( stores v at addr+i ; addr+i=v:8 )
+JMP2r
+
+( n* addr* memwrite-int -- )
+( n will always be 2 bytes )
+@memwrite-int
+    ,&str-addr STR2
+    DUP2 #0000 EQU2 ?&zero
+    fmt-dec-short
+    { LIT2 &str-addr $2 write-byte-to-mem-at-addr JMP2r } STH2r
+    proc-n-items-from-ws-with-iter
+JMP2r
+&zero 
+#00 ,&str-addr LDR2 STA 
+JMP2r
+
+( n addr memwrite-hex )
+( n will always be 2 bytes )
+@memwrite-hex
+    ,&str-addr STR2
+    fmt-hex-short
+    { LIT2 &str-addr $2 write-byte-to-mem-at-addr JMP2r } STH2r
+    proc-n-items-from-ws-with-iter
+JMP2r
+
+( n addr memwrite-hex )
+( n will always be 2 bytes )
+@memwrite-hex-1
+    ,&str-addr STR2
+    fmt-hex-short POP2 POP #01
+    { LIT2 &str-addr $2 write-byte-to-mem-at-addr JMP2r } STH2r
+    proc-n-items-from-ws-with-iter
+JMP2r
+( n addr memwrite-hex )
+( n will always be 2 bytes )
+@memwrite-hex-2
+    ,&str-addr STR2
+    fmt-hex-short POP POP POP #02
+    { LIT2 &str-addr $2 write-byte-to-mem-at-addr JMP2r } STH2r
+    proc-n-items-from-ws-with-iter
+JMP2r
+( n addr memwrite-hex )
+( n will always be 2 bytes )
+@memwrite-hex-3
+    ,&str-addr STR2
+    fmt-hex-short  POP POP #03
+    { LIT2 &str-addr $2 write-byte-to-mem-at-addr JMP2r } STH2r
+    proc-n-items-from-ws-with-iter
+JMP2r
+
+( c:8 addr:16 memwrite-char )
+@memwrite-char
+STA JMP2r
+
+( n* addr* strwrite-int -- 0004 )
+@strwrite-int
+#0002 ADD2 memwrite-int
+#0004 ( so the int is max 4 characters, that seems to assume it's hex )
+JMP2r 
+
+( n addr strwrite-hex )
+@strwrite-hex
+#0002 ADD2 memwrite-hex
+#0004
+JMP2r
+
+@strwrite-hex-1
+#0002 ADD2 !memwrite-hex-1
+#0001
+JMP2r
+@strwrite-hex-2
+#0002 ADD2 memwrite-hex-2
+#0002
+JMP2r
+
+@strwrite-hex-3
+#0002 ADD2 memwrite-hex-3
+#0003
+JMP2r
+
+
+( n addr strwrite-char )
+@strwrite-char
+#0002 ADD2 memwrite-char
+#0001 JMP2r
+
+( n addr strwrite-char )
+@strwrite-bool
+?&true
+#66 #0002 ADD2 memwrite-char
+&true
+#74 #0002 ADD2 memwrite-char
+#0001 JMP2r
+
+@print-char
+    #18 DEO JMP2r
+@print-char-stderr
+    #19 DEO JMP2r
+
+( a bool is a byte; prints `t` or `f` )
+@print-bool
+?&true
+#6618 DEO JMP2r
+&true
+#7418 DEO JMP2r
+
+( a bool is a byte; prints `t` or `f` )
+@print-bool-stderr
+?&true
+#6619 DEO JMP2r
+&true
+#7419 DEO JMP2r
+
+( x:8 -- +/- )
+@sign-byte
+#07 SFT #02 MUL #2b ADD JMP2r
+
+( x:16 -- +/- )
+@sign-short
+#0f SFT2 NIP #02 MUL #2b ADD JMP2r
+
+( x:8 -- |x:8| )
+@abs-byte 
+DUP #07 SFT ?&neg
+JMP2r
+&neg
+#ff SWP SUB INC JMP2r
+
+( x:16 -- |x:16| )
+@abs-short
+DUP2 #0f SFT2 NIP ?&neg
+JMP2r
+&neg
+#ffff SWP2 SUB2 INC2 JMP2r
+
+@print-signed-short
+DUP2 sign-short #18 DEO abs-short !print-int
+
+@print-signed-byte
+DUP2 sign-byte #18 DEO abs-byte #00 SWP !print-int
+    
+( if <10 then 30 else 57 )
+( implemented as (a<10)*0x30+(a>=10)*0x57 )
+( h:8 -- a:8 )
+@h2a
+    DUP ( h h )
+    #0a LTH ( h (h<10) )
+    DUP ( h (h<10) )
+    #01 SWP SUB ( h (h<10) 1-(h<10) )
+    #57 MUL ( h (h<10) (1-(h<10))*0x57 )
+    SWP ( h (1-(h<10))*0x57 (h<10) )
+    #30 MUL ( h (1-(h<10))*0x57 (h<10)*0x30 )
+    ADD ( h (1-(h<10))*0x57 + (h<10)*0x30 )
+    ADD ( h+(1-(h<10))*0x57 + (h<10)*0x30 )
+    JMP2r
+
+( 
+we divide by 10,000
+if the result is 1, we know we need 5 digits.
+else, we divide by 1,000.
+if 1, we need 4 digits, etc.
+)
+( x:16 -- n:8 )
+@n-dec-digits-in-short
+    DUP2 #0000 EQU2 ?&is_zero 
+    #2710 #0005 ( x:16 d:16 n:16 )
+    &loop
+    ROT2 ROT2 ( n:16 x:16 d:16 )
+    DIV2k ( n:16 x:16 d:16 x/d:16 ) 
+    #0000 NEQ2 ?&done_loop ( n:16 x:16 d:16 )
+        #000a DIV2 ( n:16 x:16 d/10:16  )
+        ROT2 #0001 SUB2 ( x:16 d/10:16 n-1:16 )
+        !&loop
+    &is_zero
+        #01
+        JMP2r
+    &done_loop
+        POP2 POP2 NIP ( n:8 )
+JMP2r
+
+( Adds substr-len to len stored at addr )
+( substr-len* addr* )
+@update-len
+LDA2k ( substr-len* addr* len* )
+ROT2 ( addr* len* substr-len* )
+ADD2 ( addr* len*+substr-len* )
+SWP2 ( len*+substr-len* addr* )
+STA2 ( -- )
+JMP2r
+
+
+( ==================================================== )
+( Functions for printing )
+@todo { 0005 "TODO 0a } STH2r print-str JMP2r
+
+@print-bit #30 ADD #18 DEO JMP2r
+@nl #0a18 DEO JMP2r
+@ws #2018 DEO JMP2r
+
+@print16-dec 
+    !print-int
+
+@print8-dec 
+    #00 SWP !print-int
+
+@write-string ( {str}* unit -- )
+	STH
+    DUP2 LDA2 ( str len )
+    SWP2 ( len str )
+    INC2 INC2 DUP2  ( len str+2 str+2 )
+    ROT2 ADD2 SWP2 ( str+2+len str+2 )
+    &l ( -- )
+    LDAk STHrk DEO
+        INC2 GTH2k ?&l
+        POP2 POP2 
+	POPr
+JMP2r
+
+@print-str 
+    #18 !write-string
+    
+@print8 ( b -: )
+    DUP ( b b )
+    lonib ( b ln )
+    h2a ( b lna )
+    SWP ( lna b )
+    hinib ( lna hn )
+    h2a ( lna hna )
+    #18 DEO #18 DEO
+    JMP2r
+
+@print16 ( a* -: )
+    SWP
+    print8
+    print8
+    JMP2r
+
+@lonib ( a -: b )
+    #0f AND
+    JMP2r
+
+@hinib ( a -: b )
+    #04 SFT
+    JMP2r
+
+@h2aOFF ( a -: b )
+    DUP ( a a )
+    #0a LTH ( a c1 )
+    DUP ( a c1 c1 )
+    #01 SWP SUB ( a c1 1-c1 )
+    #57 MUL ( a c1 [1-c1]*57 )
+    SWP ( a [1-c1]*57 c1 )
+    #30 MUL ( a [1-c1]*57 c1*30 )
+    ADD 
+    ADD ( a+[1-c1]*57+c1*30 )
+    JMP2r
+( END of functions for printing and strings )
+( ==================================================== )
+
+
+( ==================================================== )
+( This resets memory, allocated and n_allocs for test purposes )
+@reset
+    #00 .error STZ
+    #0000 ;n_allocs STA2
+    clear-bitmap
+    clear-allocation
+    clear-vmem
+
+@clear-bitmap
+#0000 ,&idx STR2
+&loop
+,&idx LDR2 N_PAGES #03 SFT2 EQU2 ,&done JCN
+#00 ,&idx LDR2 ;bitmap ADD2 STA
+,&idx LDR2 INC2 ,&idx STR2
+,&loop JMP
+&done
+JMP2r
+&idx $2
+
+@clear-vmem
+#0000 ,&idx STR2
+&loop
+,&idx LDR2 MAX_ALLOC_SZ EQU2 ,&done JCN
+#00 ,&idx LDR2 ;vmem ADD2 STA
+,&idx LDR2 INC2 ,&idx STR2
+,&loop JMP
+&done
+JMP2r
+&idx $2
+( ==================================================== )
+( For debugging )
+@print-bitmap
+#0000 ,&idx STR2
+&loop
+,&idx LDR2 #0040 EQU2 ,&done JCN
+,&idx LDR2 ;bitmap ADD2 LDA print8-dec ws
+,&idx LDR2 INC2 ,&idx STR2
+,&loop JMP
+&done
+JMP2r
+&idx $2
+
+@print-allocated
+#0000 ,&idx STR2
+&loop
+,&idx LDR2 #0080 EQU2 ,&done JCN
+,&idx LDR2 ;allocated ADD2 LDA2 print16-dec ws
+,&idx LDR2 ;allocated ADD2 #0002 ADD2 LDA2 print16-dec ws
+,&idx LDR2 #0004 ADD2 ,&idx STR2
+,&loop JMP
+&done
+JMP2r
+&idx $2
+( ==================================================== )
+( b :- not_b )
+@not #01 SWP SUB JMP2r
+( ==================================================== )
+( Functions for error handling )
+
+@report-error ( erc -- )
+    #00 SWP #0002 MUL2 ;errors ADD2 LDA2 JSR2
+    JMP2r
+
+@get-error
+    .error LDZ
+    JMP2r
+
+( error strings )
+@errors =no-error =null-ptr =invalid-ptr =invalid-access =outside-page =max-alloc =ptr-not-alloc =alloc-too-large
+( errors )
+( 0 )
+@no-error JMP2r
+( 1 )
+@null-ptr { 000c "Null 20 "pointer } STH2r !print-str
+( 2 )
+@invalid-ptr { 000f "Invalid 20 "pointer } STH2r !print-str
+( 3 )
+@invalid-access { 000f "Invalid 20 "access: } STH2r !print-str
+( 4 )
+@outside-page { 0016 "Outside 20 "of 20 "page 20 "range: } STH2r !print-str
+( 5 )
+@max-alloc { 0021 "Max 20 "number 20 "of 20 "allocations 20 "reached } STH2r !print-str
+( 6 )
+@ptr-not-alloc { 0019 "Pointer 20 "was 20 "not 20 "allocated } STH2r !print-str
+( 7 )
+@alloc-too-large { 0014 "Allocation 20 "too 20 "large  } STH2r !print-str
+
+( END of functions for error handling )
+( ==================================================== )
+
+( Constants )
+@PAGE_SZ ( -: a* ) #0010 JMP2r ( We allocate 16 bytes per page )
+@N_PAGES ( -: a* ) #0100 JMP2r ( We have a total of 256 pages, so we can allocate at most 4kB )
+@DMEM_START ( -: a* ) #f000 JMP2r ( Start at 60*1024 )
+@MAX_N_ALLOCS ( -: a* ) #0020 JMP2r ( We can allocate at most 32 regions )
+@MAX_ALLOC_SZ ( -: a* )  
+PAGE_SZ N_PAGES MUL2
+JMP2r
+( Counter to track number of allocations )
+( The allocation map is in allocation-map.tal )
+@n_allocs 0000
+
+ ( N_PAGES bits, packed in bytes mean N_PAGES/8 entries, so with the above, the bitmap will take 32 bytes )
+ ( 0 means free )
+@bitmap $20
+
+( The allocation happens below this )
+|f000
+@vmem
