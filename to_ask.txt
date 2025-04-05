@@ -1,5 +1,7 @@
 do i need to worry about stack overflow?
 set_bit tests pass no matter what
+mask_set seems to work with bit_idx, not just bit_idx*
+same with mask_clear
 
 00 6a = idx = 106
 00 0d = byte_idx = 13
