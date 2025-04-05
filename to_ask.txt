@@ -1,32 +1,8 @@
-set_bit implementation. can i avoid using mask_set and do it myself
+do i need to worry about stack overflow?
+set_bit tests pass no matter what
 
-    DUP2 #03 SFT2 ( idx byte_idx ; python: byte_idx = idx >> 3 )
-
-    DUP2 #30 SFT2 ( idx byte_idx byte_idx<<3 )
-    ROT2 ( byte_idx byte_idx<<3 idx )   
-    DUP2 ( byte_idx byte_idx<<3 idx idx )
-    ROT2 ( byte_idx idx idx byte_idx<<3 )
-    ADD2 ( byte_idx idx idx+byte_idx<<3 )
-    #0007 ( byte_idx idx idx+byte_idx<<3 0007 )
-    SWP2 ( byte_idx idx 0007 idx+byte_idx<<3 )
-    SUB2 ( byte_idx idx bit_idx ; python: bit_idx = 7-idx+byte_idx<<3 )
-
-    ROT2 ( idx bit_idx byte_idx )
-
-    ;bitmap ( idx bit_idx byte_idx bitmap_start_address )
-    ADD2 ( idx bit_idx bitmap_byte_idx_offset_address )
-    LDA ( idx bit_idx byte ; python: byte = bitmap[byte_idx] )
-
-    #00 SWP ( idx bit_idx byte_2b )
-    ROT2 ( bit_idx byte_2b idx )
-    #03 SFT2 ( bit_idx byte_2b byte_idx )
-    SWP2 ( bit_idx byte_idx byte_2b )
-    ROT2 ( byte_idx byte_2b bit_idx )
-    SWP2 NIP ( byte_idx bit_idx byte )
-    ROT ROT ( byte_idx byte bit_idx ; setting up stack for next line )
-
-    mask_set ( byte_idx byte mask_set(bit_idx) )
-    ORA ( byte_idx (byte|mask_set(bit_idx)) )
-    ROT ROT ( (byte|mask_set(bit_idx)) byte_idx )
-    ;bitmap ADD2 ( byte_to_add address )
-    STA
+00 6a = idx = 106
+00 0d = byte_idx = 13
+00 68 = byte_idx<<3 = 104
+00 05 = bit_idx
+65 = 01 4e address
