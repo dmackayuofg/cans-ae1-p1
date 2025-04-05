@@ -106,12 +106,13 @@ JMP2r
 ( idx:16 alloc_sz:16 -- 00 or 01 )
 @alloc_sz_is_free_at_idx ( idx* alloc_sz* -: b )
 
+    ( python: for jj in range[alloc_sz]: )
     #0000 ( idx alloc_sz jj )
     &loop
         GTH2k ( idx alloc_sz jj 01/00 )
         not ,&done JCN ( break when loop done )
             
-            ( python: if idx+jj>N_PAGES-1: error=4 )
+            ( python: if idx+jj>N_PAGES-1: )
             ( idx alloc_sz jj )
             ROT2 ( alloc_sz jj idx )
             ADD2k ( alloc_sz jj idx idx+jj )
@@ -121,6 +122,7 @@ JMP2r
             ( may need to rework so that the if true is after the loop )
             not ,&if_1_false JCN
 
+                ( error=4 )
                 ( alloc_sz jj idx )
                 &ret_0_error4
                     #04 .error STZ
@@ -140,6 +142,7 @@ JMP2r
             ROT2 ( jj idx alloc_sz )
             ROT2 ( idx alloc_sz jj )
             INC2 ( idx alloc_sz jj+1 )
+            ,&loop JMP
     &done
     ( idx alloc_sz jj )
     POP2 POP2 POP2 #01 JMP2r
@@ -148,10 +151,13 @@ JMP2r
 ( allocation size is in pages )
 @claim_alloc_sz_at_idx ( idx* alloc_sz* -: ) 
     
+    ( python: for jj in range[alloc_sz]: )
     #0000 ( idx alloc_sz jj )
     &loop
         GTH2k ( idx alloc_sz jj 01/00 )
         not ,&done JCN ( break when loop done )
+
+            ( python: set_bit[idx+jj] )
             ( idx alloc_sz jj )
             ROT2 ( alloc_sz jj idx )
             ADD2k ( alloc_sz jj idx idx+jj )
@@ -160,6 +166,8 @@ JMP2r
             ROT2 ( idx alloc_sz jj )
             INC2 ( idx alloc_sz jj+1 )
             ,&loop JMP
+    
+    ( outside the loop )
     &done
     ( idx alloc_sz jj )
     POP2 POP2 POP2 ( )
@@ -168,10 +176,13 @@ JMP2r
 ( allocation size is in pages )
 @free_alloc_sz_at_idx ( idx* alloc_sz* -: ) 
 
+    ( python: for jj in range[alloc_sz]: )
     #0000 ( idx alloc_sz jj )
     &loop
         GTH2k ( idx alloc_sz jj 01/00 )
         not ,&done JCN ( break when loop done )
+
+            ( python: clear_bit[idx+jj] )
             ( idx alloc_sz jj )
             ROT2 ( alloc_sz jj idx )
             ADD2k ( alloc_sz jj idx idx+jj )
@@ -180,6 +191,8 @@ JMP2r
             ROT2 ( idx alloc_sz jj )
             INC2 ( idx alloc_sz jj+1 )
             ,&loop JMP
+
+    ( outside the loop )
     &done
     ( idx alloc_sz jj )
     POP2 POP2 POP2 ( )

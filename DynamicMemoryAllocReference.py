@@ -134,7 +134,7 @@ def mask_clear(bit_idx):
 # allocation size is in pages
 def alloc_sz_is_free_at_idx(idx, alloc_sz) :
     global bitmap, error
-    for jj in range(alloc_sz) : 
+    for jj in range(alloc_sz): 
         # print('alloc_sz_is_free_at_idx:',idx,jj)
         if(idx+jj>N_PAGES-1):
             error=4
