@@ -114,11 +114,39 @@ JMP2r
 
 ( allocation size is in pages )
 @claim_alloc_sz_at_idx ( idx* alloc_sz* -: ) 
-    !todo
+    
+    #0000 ( idx alloc_sz jj )
+    &loop
+        GTH2k ( idx alloc_sz jj 01/00 )
+        not ,&done JCN ( break when loop done )
+            ( idx alloc_sz jj )
+            ROT2 ( alloc_sz jj idx )
+            ADD2k ( alloc_sz jj idx idx+jj )
+            set_bit ( alloc_sz jj idx )
+            ROT2 ( jj idx alloc_sz )
+            ROT2 ( idx alloc_sz jj )
+            INC2 ( idx alloc_sz jj+1 )
+            ,&loop JMP
+        &done
+JMP2r
 
 ( allocation size is in pages )
 @free_alloc_sz_at_idx ( idx* alloc_sz* -: ) 
-    !todo
+
+    #0000 ( idx alloc_sz jj )
+    &loop
+        GTH2k ( idx alloc_sz jj 01/00 )
+        not ,&done JCN ( break when loop done )
+            ( idx alloc_sz jj )
+            ROT2 ( alloc_sz jj idx )
+            ADD2k ( alloc_sz jj idx idx+jj )
+            clear_bit ( alloc_sz jj idx )
+            ROT2 ( jj idx alloc_sz )
+            ROT2 ( idx alloc_sz jj )
+            INC2 ( idx alloc_sz jj+1 )
+            ,&loop JMP
+        &done
+JMP2r
 
 @get_bit ( idx -- bit )
 
