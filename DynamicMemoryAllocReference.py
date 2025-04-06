@@ -74,7 +74,7 @@ def malloc(n_bytes) :
                 return ptr
     return 0 # Null pointer
 
-def free(ptr) :    
+def free(ptr) :
     global n_allocs, allocated, error
     idx = (ptr-DMEM_START) // PAGE_SZ
     if idx<0 or idx>N_PAGES-1:
@@ -89,7 +89,7 @@ def free(ptr) :
             
             # print('F',n_pages,ptr)
             free_alloc_sz_at_idx(idx, n_pages)
-            del allocated[ptr] 
+            del allocated[ptr]
             n_allocs = n_allocs - 1
         else:
             error=6

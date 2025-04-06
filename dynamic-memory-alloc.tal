@@ -74,7 +74,7 @@ JMP2r
     ROT ROT ( idx* idx<0 idx* )
     N_PAGES #0001 SUB2 GTH2 ( idx* idx<0 idx>N_PAGES-1 )
     ORA not ,&cont JCN ( idx* )
-        #02 .error STZ
+        #02 .error STZ ( idx still on the stack at this point, should need a POP2 ?? )
         JMP2r
     &cont ( idx* )
     ( this corresponds to 
@@ -87,13 +87,20 @@ JMP2r
     DUP2 #0000 EQU2 ,&error6 JCN ( idx* n_bytes* )
     #00 .error STZ
 
-    !todo
+    ( python: n_pages = [[n_bytes-1] // PAGE_SZ] + 1 )
+    #0001 SUB2 PAGE_SZ DIV2 #0001 ADD2 ( idx n_pages )
 
-    ( snippet: )
-    ( this corresponds to 
-        del allocated[ptr]
-    )
-    ;&ptr LDA2 delete-ptr
+    ( python: free_alloc_sz_at_idx(idx, n_pages) )
+    free_alloc_sz_at_idx ( )
+
+    ( python: del allocated[ptr] )
+    ;&ptr LDA2 delete-ptr ( 01/00 )
+    POP ( )
+
+    ( python: n_allocs = n_allocs - 1 )
+    ;n_allocs LDA2 ( n_allocs )
+    #0001 SUB2 ( n_allocs-1 )
+    ;n_allocs STA2 ( )
 
     ( You are free to change this part but there should be no need )
     JMP2r
