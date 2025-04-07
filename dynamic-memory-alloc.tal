@@ -44,40 +44,44 @@
     #0001 SUB2 ( n_bytes n_bytes-1 ) 
     PAGE_SZ DIV2 ( n_bytes (n_bytes-1)//PAGE_SZ )
     #0001 ADD2 ( n_bytes ((n_bytes-1)//PAGE_SZ)+1 )
-    .n_pages STZ2 ( n_bytes* )
+
+    DUP2 ROT2 ROT2 ( n_pages n_bytes n_pages )
 
     ( python: if n_pages>N_PAGES: error = 7 return 0 )
-    .n_pages LDZ2 N_PAGES ( n_bytes n_pages N_PAGES )
-    GTH2 not ,&cont2 JCN ( n_bytes )
-        POP2 ( )
+    N_PAGES ( n_pages n_bytes n_pages N_PAGES )
+    GTH2 not ,&cont2 JCN ( n_pages n_bytes )
+        POP2 POP2 ( )
         #07 .error STZ
         #0000 JMP2r ( 0000 )
-    &cont2 ( n_bytes )
+    &cont2 ( n_pages n_bytes )
 
     ( python: for idx in range(N_PAGES): )
-    N_PAGES ( n_bytes N_PAGES )
-    #0000 ( n_bytes N_PAGES idx )
-    DUP2 ( n_bytes N_PAGES idx idx )
-    ROT2 ROT2 ( n_bytes idx N_PAGES idx )
+    N_PAGES ( n_pages n_bytes N_PAGES )
+    #0000 ( n_pages n_bytes N_PAGES idx )
+    DUP2 ( n_pages n_bytes N_PAGES idx idx )
+    ROT2 ROT2 ( n_pages n_bytes idx N_PAGES idx )
     &loop
-        GTH2 ( n_bytes idx 01/00 )
+        GTH2 ( n_pages n_bytes idx 01/00 )
         not ,&loopdone JCN ( break when loop done )
 
             ( python: if alloc_sz_is_free_at_idx(idx, n_pages): )
-            ( n_bytes idx )
-            DUP2 .n_pages LDZ2 ( n_bytes idx idx n_pages )
-            alloc_sz_is_free_at_idx ( n_bytes idx 01/00 )
+            ( n_pages n_bytes idx )
+            ROT2 ( n_bytes idx n_pages )
+            DUP2 ( n_bytes idx n_pages n_pages )
+            ROT2 ROT2 ( n_bytes n_pages idx n_pages )
+            SWP2 DUP2 ROT2 ( n_bytes n_pages idx idx n_pages )
+            alloc_sz_is_free_at_idx ( n_bytes n_pages idx 01/00 )
             not ,&if_alloc_not_free JCN
                 
                 ( python: if error>0: return 0 )
-                ( n_bytes idx )
+                ( n_bytes n_pages idx )
                 .error LDZ #00 EQU ,&cont3 JCN
-                    POP2 POP2 ( )
+                    POP2 POP2 POP2 ( )
                     #0000 JMP2r ( 0000 )
-                &cont3 ( n_bytes idx )
+                &cont3 ( n_bytes n_pages idx )
 
                 ( python: claim_alloc_sz_at_idx(idx, n_pages) )
-                DUP2 .n_pages LDZ2 ( n_bytes idx idx n_pages )
+                DUP2 ROT2 ( n_bytes idx idx n_pages )
                 claim_alloc_sz_at_idx ( n_bytes idx )
 
                 ( python: if n_allocs == MAX_N_ALLOCS: error = 5 return 0 )
@@ -104,16 +108,18 @@
                 insert-ptr POP ( idx ptr )
                 NIP2 ( ptr )
                 JMP2r
-            &if_alloc_not_free ( n_bytes idx )
+            &if_alloc_not_free ( n_bytes n_pages idx )
 
             ( setup loop condition )
-            N_PAGES SWP2 ( n_bytes N_PAGES idx )
-            #0001 INC2 ( n_bytes N_PAGES idx+1 )
-            DUP2 ( n_bytes N_PAGES idx+1 idx+1 )
-            ROT2 ROT2 ( n_bytes idx+1 N_PAGES idx+1 )
+            ROT2 ( n_pages idx n_bytes )
+            SWP2 ( n_pages n_bytes idx )
+            #0001 INC2 ( n_pages n_bytes idx+1 )
+            DUP2 ( n_pages n_bytes idx+1 idx+1 )
+            N_PAGES SWP2 ( n_pages n_bytes idx+1 N_PAGES idx+1 )
             ,&loop JMP
-    &loopdone ( n_bytes idx )
-    POP2 POP2 #00 ( 00 )
+
+    &loopdone ( n_pages n_bytes idx )
+    POP2 POP2 POP2 #00 ( 00 )
 JMP2r
 
 @free ( ptr* -- )
