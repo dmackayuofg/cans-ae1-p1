@@ -117,49 +117,54 @@
 JMP2r
 
 @free ( ptr* -- )
-    ( You are free to change this part but there should be no need )
-    DUP2 ;&ptr STA2 ( ptr* )
-    DMEM_START SUB2 PAGE_SZ DIV2 ( idx* = (ptr-DMEM_START) // PAGE_SZ )
+
+    ( python: idx = (ptr-DMEM_START) // PAGE_SZ )
+    DUP2 DMEM_START SUB2 PAGE_SZ DIV2 ( ptr idx )
+
     ( if idx<0 or idx>N_PAGES-1: error=2 )
-    DUP2 DUP2 ( idx* idx* idx* )
-    #0000 LTH2 ( idx* idx* idx<0 )
-    ROT ROT ( idx* idx<0 idx* )
-    N_PAGES #0001 SUB2 GTH2 ( idx* idx<0 idx>N_PAGES-1 )
-    ORA not ,&cont JCN ( idx* )
-        #02 .error STZ ( idx still on the stack at this point, should need a POP2 ?? )
+    DUP2 DUP2 ( ptr idx* idx* idx* )
+    #0000 LTH2 ( ptr idx* idx* idx<0 )
+    ROT ROT ( ptr idx* idx<0 idx* )
+    N_PAGES #0001 SUB2 GTH2 ( ptr idx* idx<0 idx>N_PAGES-1 )
+    ORA ( ptr idx (idx<0 or idx>N_PAGES-1) ) 
+    not ,&cont JCN ( ptr idx* )
+        #02 .error STZ
+        POP2 POP2 ( )
         JMP2r
-    &cont ( idx* )
-    ( this corresponds to 
-        if ptr in allocated
-    )
-    ;&ptr LDA2 lookup-ptr
+    &cont ( ptr idx* )
+
+    ( python: if ptr in allocated )
+    SWP2 DUP2 ( idx ptr ptr )
+    lookup-ptr ( idx ptr n_bytes )
     ( check if lookup-ptr returned 0000 
         if so, error=0 else error=6
     )
-    DUP2 #0000 EQU2 ,&error6 JCN ( idx* n_bytes* )
-    #00 .error STZ
+    DUP2 ( idx ptr n_bytes n_bytes )
+    #0000 EQU2 ( idx ptr n_bytes 01/00 )
+    ,&error6 JCN ( idx* ptr n_bytes* )
+        #00 .error STZ
 
-    ( python: n_pages = [[n_bytes-1] // PAGE_SZ] + 1 )
-    #0001 SUB2 PAGE_SZ DIV2 #0001 ADD2 ( idx n_pages )
+        ( python: n_pages = ((n_bytes-1) // PAGE_SZ) + 1 )
+        ( idx* ptr n_bytes* )
+        #0001 SUB2 PAGE_SZ DIV2 #0001 ADD2 ( idx ptr n_pages )
 
-    ( python: free_alloc_sz_at_idx(idx, n_pages) )
-    free_alloc_sz_at_idx ( )
+        ( python: free_alloc_sz_at_idx(idx, n_pages) )
+        ROT2 SWP2 ( ptr idx n_pages )
+        free_alloc_sz_at_idx ( ptr )
 
-    ( python: del allocated[ptr] )
-    ;&ptr LDA2 delete-ptr ( 01/00 )
-    POP ( )
+        ( python: del allocated[ptr] )
+        delete-ptr ( 01/00 )
+        POP ( )
 
-    ( python: n_allocs = n_allocs - 1 )
-    ;n_allocs LDA2 ( n_allocs )
-    #0001 SUB2 ( n_allocs-1 )
-    ;n_allocs STA2 ( )
-
-    ( You are free to change this part but there should be no need )
-    JMP2r
-    &error6 
+        ( python: n_allocs = n_allocs - 1 )
+        ;n_allocs LDA2 ( n_allocs )
+        #0001 SUB2 ( n_allocs-1 )
+        ;n_allocs STA2 ( )
+        JMP2r
+    &error6 ( idx* ptr n_bytes* )
         #06 .error STZ 
-    JMP2r
-&ptr $2   
+        POP2 POP2 POP2 
+JMP2r
 
 ( allocation size is in pages )
 ( idx:16 alloc_sz:16 -- 00 or 01 )
