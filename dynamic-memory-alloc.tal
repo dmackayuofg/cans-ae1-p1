@@ -287,29 +287,25 @@ JMP2r
     DUP2 ( idx bit_idx byte_idx byte_idx )
     N_PAGES ( idx bit_idx byte_idx byte_idx N_PAGES )
     #0001 SUB2 ( idx bit_idx byte_idx byte_idx N_PAGES-1 )
-    GTH2 not ,&cont JCN 
+    GTH2 not ,&cont JCN ( idx bit_idx byte_idx )
         ( python: error=4 )
         #04 .error STZ 
-        JMP2r
     &cont ( idx bit_idx byte_idx )
 
     ( python: byte = bitmap[byte_idx] )
     ;bitmap ( idx bit_idx byte_idx bitmap_start_address )
     ADD2 ( idx bit_idx bitmap_byte_idx_offset_address )
-    LDA ( idx bit_idx byte ; python: byte = bitmap[byte_idx] )
+    LDA ( idx bit_idx byte ) 
 
-    ( python: bit = [byte >> bit_idx] & 0x01 )
+    ( python: bit = (byte >> bit_idx) & 0x01 )
     ROT POP ( idx bit_idx_1b byte )
     SWP ( idx byte bit_idx_1b )
     SFT ( idx byte>>bit_idx )
     #01 AND ( idx bit )
 
     ( python: return bit )
-    ( stack cleaning )
-    #00 ( idx_2b bit_1b 00 )
-    NIP2 ( bit_1b 00 )
-    POP  ( bit_1b )
-JMP2r ( bit )
+    NIP NIP ( bit )
+JMP2r 
 
 @set_bit ( idx -- )
 

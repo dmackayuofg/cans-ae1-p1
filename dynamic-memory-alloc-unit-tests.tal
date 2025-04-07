@@ -202,7 +202,7 @@ JMP2r
     #0001 malloc ;&ptr STA2 
     ;&ptr LDA2 #0000 NEQ2 get-error #00 EQU AND print-bit nl
 
-    #0010 malloc ;&ptr STA2 
+    #0010 malloc ;&ptr STA2
     ;&ptr LDA2 free
     get-error #00 EQU print-bit nl
 JMP2r
