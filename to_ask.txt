@@ -1,9 +1,4 @@
-check if ptr needs LDA2 TRIED
-rework free to not use local TRIED
-rework malloc to not use n_pages zero page
-check free error returns has empty stack TRIED
-change comments to use () instead of []
-check error returns has empty stack Before rework 
+malloc "returns 0" as short or 1byte (just the final one)
 
 
 TOP IS MALLOC WITH LOCAL VARIABLE idx ( OLD )

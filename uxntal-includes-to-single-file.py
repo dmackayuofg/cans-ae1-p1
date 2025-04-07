@@ -23,7 +23,6 @@ def includeSource(src):
                 includeSource(inc)
                 seenSources[inc]=True
         else:
-            print(line)
             output_lines.append(line)
 
 includeSource(programFile)

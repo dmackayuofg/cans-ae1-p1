@@ -168,8 +168,8 @@ JMP2r
         ;n_allocs STA2 ( )
         JMP2r
     &error6 ( idx* ptr n_bytes* )
-        #06 .error STZ 
-        POP2 POP2 POP2 
+    #06 .error STZ 
+    POP2 POP2 POP2 
 JMP2r
 
 ( allocation size is in pages )
@@ -220,19 +220,18 @@ JMP2r
 ( allocation size is in pages )
 @claim_alloc_sz_at_idx ( idx* alloc_sz* -: ) 
     
-    ( python: for jj in range[alloc_sz]: )
+    ( python: for jj in range(alloc_sz): )
     #0000 ( idx alloc_sz jj )
     &loop
         GTH2k ( idx alloc_sz jj 01/00 )
         not ,&done JCN ( break when loop done )
 
-            ( python: set_bit[idx+jj] )
+            ( python: set_bit(idx+jj) )
             ( idx alloc_sz jj )
             ROT2 ( alloc_sz jj idx )
             ADD2k ( alloc_sz jj idx idx+jj )
             set_bit ( alloc_sz jj idx )
-            ROT2 ( jj idx alloc_sz )
-            ROT2 ( idx alloc_sz jj )
+            ROT2 ROT2 ( idx alloc_sz jj )
             INC2 ( idx alloc_sz jj+1 )
             ,&loop JMP
     
@@ -245,19 +244,18 @@ JMP2r
 ( allocation size is in pages )
 @free_alloc_sz_at_idx ( idx* alloc_sz* -: ) 
 
-    ( python: for jj in range[alloc_sz]: )
+    ( python: for jj in range(alloc_sz): )
     #0000 ( idx alloc_sz jj )
     &loop
         GTH2k ( idx alloc_sz jj 01/00 )
         not ,&done JCN ( break when loop done )
 
-            ( python: clear_bit[idx+jj] )
+            ( python: clear_bit(idx+jj) )
             ( idx alloc_sz jj )
             ROT2 ( alloc_sz jj idx )
             ADD2k ( alloc_sz jj idx idx+jj )
             clear_bit ( alloc_sz jj idx )
-            ROT2 ( jj idx alloc_sz )
-            ROT2 ( idx alloc_sz jj )
+            ROT2 ROT2 ( idx alloc_sz jj )
             INC2 ( idx alloc_sz jj+1 )
             ,&loop JMP
 
