@@ -119,7 +119,7 @@
             ,&loop JMP
 
     &loopdone ( n_pages n_bytes idx )
-    POP2 POP2 POP2 #00 ( 00 )
+    POP2 POP2 POP2 #0000 ( 00 )
 JMP2r
 
 @free ( ptr* -- )
