@@ -1,28 +1,10 @@
 (
-    This program will implement the functions malloc() and free() as is seen in C.
+    This program will implement the functions malloc() and free() as is seen in C. The allocation will go to a bitmap structure.
     Created by Drew Mackay, 2652958M.
 )
 
 (
  Dynamic memory allocation using pages, a bitmap and an allocation map
-)
-
-( This is the suggested code skeleton for AE1
-  it also provides helper functions for printing
-
-  Replace `!todo` with your implementation for each function, 
-  based on the Python reference
-
-  "snippet" means a bit of code that you can use in your solution
-)
-
-(
-  Rename this file to 
-    dynamic-memory-alloc.tal
-)
-
-( zero page declarations should go into
-    dynamic-memory-alloc-decls.tal
 )
 
 ( definitions of malloc, free and functions used to implement them )
