@@ -2,6 +2,8 @@ malloc "returns 0" as short or 1byte (just the final one)
 
 change addressing modes? ,&foo for jumps, ;&bar for vars
 
+@bitmap 80 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+
 
 TOP IS MALLOC WITH LOCAL VARIABLE idx ( OLD )
 BOTTOM IS MALLOC REWORKED TO HAVE idx AS A STACK VALUE ONLY ( NEW REWORK )
