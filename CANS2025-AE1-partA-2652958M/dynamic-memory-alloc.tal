@@ -1,0 +1,496 @@
+(
+    This program will implement the functions malloc() and free() as is seen in C. The allocation will go to a bitmap structure.
+    Created by Drew Mackay, 2652958M.
+)
+
+(
+ Dynamic memory allocation using pages, a bitmap and an allocation map
+)
+
+( definitions of malloc, free and functions used to implement them )
+@malloc ( n_bytes* -- <allocation in bytes> )
+
+    ( python: error = 0 )
+    #00 .error STZ ( n_bytes )
+
+    ( python: if n_bytes==0: error = 1 return 0 )
+    DUP2 DUP2 ( n_bytes* n_bytes* n_bytes* )
+    #0000 NEQ2 ,&cont1 JCN
+        ( n_bytes n_bytes )
+        POP2 POP2
+        #01 .error STZ
+        #0000 JMP2r ( 0000 )
+    &cont1 ( n_bytes* n_bytes* )
+
+    ( python: n_pages = ((n_bytes-1) // PAGE_SZ) + 1 )
+    #0001 SUB2 ( n_bytes n_bytes-1 ) 
+    PAGE_SZ DIV2 ( n_bytes (n_bytes-1)//PAGE_SZ )
+    #0001 ADD2 ( n_bytes ((n_bytes-1)//PAGE_SZ)+1 )
+
+    DUP2 ROT2 ROT2 ( n_pages n_bytes n_pages )
+
+    ( python: if n_pages>N_PAGES: error = 7 return 0 )
+    N_PAGES ( n_pages n_bytes n_pages N_PAGES )
+    GTH2 not ,&cont2 JCN ( n_pages n_bytes )
+        POP2 POP2 ( )
+        #07 .error STZ
+        #0000 JMP2r ( 0000 )
+    &cont2 ( n_pages n_bytes )
+
+    ( python: for idx in range(N_PAGES): )
+    N_PAGES ( n_pages n_bytes N_PAGES )
+    #0000 ( n_pages n_bytes N_PAGES idx )
+    DUP2 ( n_pages n_bytes N_PAGES idx idx )
+    ROT2 ROT2 ( n_pages n_bytes idx N_PAGES idx )
+    &loop
+        GTH2 ( n_pages n_bytes idx 01/00 )
+        not ,&loopdone JCN ( break when loop done )
+
+            ( python: if alloc_sz_is_free_at_idx(idx, n_pages): )
+            ( n_pages n_bytes idx )
+            ROT2 ( n_bytes idx n_pages )
+            DUP2 ( n_bytes idx n_pages n_pages )
+            ROT2 ROT2 ( n_bytes n_pages idx n_pages )
+            SWP2 DUP2 ROT2 ( n_bytes n_pages idx idx n_pages )
+            alloc_sz_is_free_at_idx ( n_bytes n_pages idx 01/00 )
+            not ,&if_alloc_not_free JCN
+                
+                ( python: if error>0: return 0 )
+                ( n_bytes n_pages idx )
+                .error LDZ #00 EQU ,&cont3 JCN
+                    POP2 POP2 POP2 ( )
+                    #0000 JMP2r ( 0000 )
+                &cont3 ( n_bytes n_pages idx )
+
+                ( python: claim_alloc_sz_at_idx(idx, n_pages) )
+                DUP2 ROT2 ( n_bytes idx idx n_pages )
+                claim_alloc_sz_at_idx ( n_bytes idx )
+
+                ( python: if n_allocs == MAX_N_ALLOCS: error = 5 return 0 )
+                ;n_allocs LDA2 DUP2 ( n_bytes idx n_allocs n_allocs )
+                MAX_N_ALLOCS NEQ2 ( n_bytes idx n_allocs 01/00 )
+                ,&cont4 JCN 
+                    #05 .error STZ
+                    POP2 POP2 POP2 ( )
+                    #0000 JMP2r ( 0000 )
+                &cont4 ( n_bytes idx n_allocs )
+
+                ( python: n_allocs = n_allocs + 1 )
+                INC2 ( n_bytes idx n_allocs+1 )
+                ;n_allocs STA2 ( n_bytes idx )
+
+                ( python: ptr = idx*PAGE_SZ+DMEM_START )
+                DUP2 ROT2 SWP2 ( idx n_bytes idx )
+                PAGE_SZ MUL2 ( idx n_bytes idx*PAGE_SZ )
+                DMEM_START ADD2 ( idx n_bytes idx*PAGE_SZ+DMEM_START=ptr )
+
+                ( python: allocated[ptr]=n_bytes )
+                DUP2 ( idx n_bytes ptr ptr )
+                ROT2 ROT2 ( idx ptr n_bytes ptr )
+                insert-ptr POP ( idx ptr )
+                NIP2 ( ptr )
+                JMP2r
+            &if_alloc_not_free ( n_bytes n_pages idx )
+
+            ( setup loop condition )
+            ROT2 ( n_pages idx n_bytes )
+            SWP2 ( n_pages n_bytes idx )
+            #0001 INC2 ( n_pages n_bytes idx+1 )
+            DUP2 ( n_pages n_bytes idx+1 idx+1 )
+            N_PAGES SWP2 ( n_pages n_bytes idx+1 N_PAGES idx+1 )
+            ,&loop JMP
+
+    &loopdone ( n_pages n_bytes idx )
+    POP2 POP2 POP2 #0000 ( 00 )
+JMP2r
+
+@free ( ptr* -- )
+
+    ( python: idx = (ptr-DMEM_START) // PAGE_SZ )
+    DUP2 DMEM_START SUB2 PAGE_SZ DIV2 ( ptr idx )
+
+    ( if idx<0 or idx>N_PAGES-1: error=2 )
+    DUP2 DUP2 ( ptr idx* idx* idx* )
+    #0000 LTH2 ( ptr idx* idx* idx<0 )
+    ROT ROT ( ptr idx* idx<0 idx* )
+    N_PAGES #0001 SUB2 GTH2 ( ptr idx* idx<0 idx>N_PAGES-1 )
+    ORA ( ptr idx (idx<0 or idx>N_PAGES-1) ) 
+    not ,&cont JCN ( ptr idx* )
+        #02 .error STZ
+        POP2 POP2 ( )
+        JMP2r
+    &cont ( ptr idx* )
+
+    ( python: if ptr in allocated )
+    SWP2 DUP2 ( idx ptr ptr )
+    lookup-ptr ( idx ptr n_bytes )
+    ( check if lookup-ptr returned 0000 
+        if so, error=0 else error=6
+    )
+    DUP2 ( idx ptr n_bytes n_bytes )
+    #0000 EQU2 ( idx ptr n_bytes 01/00 )
+    ,&error6 JCN ( idx* ptr n_bytes* )
+        #00 .error STZ
+
+        ( python: n_pages = ((n_bytes-1) // PAGE_SZ) + 1 )
+        ( idx* ptr n_bytes* )
+        #0001 SUB2 PAGE_SZ DIV2 #0001 ADD2 ( idx ptr n_pages )
+
+        ( python: free_alloc_sz_at_idx(idx, n_pages) )
+        ROT2 SWP2 ( ptr idx n_pages )
+        free_alloc_sz_at_idx ( ptr )
+
+        ( python: del allocated[ptr] )
+        delete-ptr ( 01/00 )
+        POP ( )
+
+        ( python: n_allocs = n_allocs - 1 )
+        ;n_allocs LDA2 ( n_allocs )
+        #0001 SUB2 ( n_allocs-1 )
+        ;n_allocs STA2 ( )
+        JMP2r
+    &error6 ( idx* ptr n_bytes* )
+    #06 .error STZ 
+    POP2 POP2 POP2 
+JMP2r
+
+( allocation size is in pages )
+( idx:16 alloc_sz:16 -- 00 or 01 )
+@alloc_sz_is_free_at_idx ( idx* alloc_sz* -: b )
+
+    ( python: for jj in range[alloc_sz]: )
+    #0000 ( idx alloc_sz jj )
+    &loop
+        GTH2k ( idx alloc_sz jj 01/00 )
+        not ,&done JCN ( break when loop done )
+            
+            ( python: if idx+jj>N_PAGES-1: )
+            ( idx alloc_sz jj )
+            ROT2 ( alloc_sz jj idx )
+            ADD2k ( alloc_sz jj idx idx+jj )
+            N_PAGES #0001 SUB2 ( alloc_sz jj idx idx+jj N_PAGES-1 )
+            GTH2 ( alloc_sz jj idx 01/00 )
+
+            ( may need to rework so that the if true is after the loop )
+            not ,&if_1_false JCN ( alloc_sz jj idx )
+
+                ( error=4 )
+                ( alloc_sz jj idx )
+                #04 .error STZ ( alloc_sz jj idx )
+                POP2 POP2 POP2 ( )
+                #00 JMP2r ( 00 )
+            
+            ( alloc_sz jj idx )
+            &if_1_false
+            ADD2k ( alloc_sz jj idx idx+jj )
+            get_bit ( alloc_sz jj idx bit )
+            #01 EQU ( alloc_sz jj idx 00/01 )
+            not ,&if_2_false JCN
+                ( alloc_sz jj idx )
+                POP2 POP2 POP2 #00 JMP2r ( 00 )
+            
+            &if_2_false ( alloc_sz jj idx )
+            ROT2 ( jj idx alloc_sz )
+            ROT2 ( idx alloc_sz jj )
+            INC2 ( idx alloc_sz jj+1 )
+            ,&loop JMP
+    &done
+    ( idx alloc_sz jj )
+    POP2 POP2 POP2 #01
+JMP2r
+
+( allocation size is in pages )
+@claim_alloc_sz_at_idx ( idx* alloc_sz* -: ) 
+    
+    ( python: for jj in range(alloc_sz): )
+    #0000 ( idx alloc_sz jj )
+    &loop
+        GTH2k ( idx alloc_sz jj 01/00 )
+        not ,&done JCN ( break when loop done )
+
+            ( python: set_bit(idx+jj) )
+            ( idx alloc_sz jj )
+            ROT2 ( alloc_sz jj idx )
+            ADD2k ( alloc_sz jj idx idx+jj )
+            set_bit ( alloc_sz jj idx )
+            ROT2 ROT2 ( idx alloc_sz jj )
+            INC2 ( idx alloc_sz jj+1 )
+            ,&loop JMP
+    
+    ( outside the loop )
+    &done
+    ( idx alloc_sz jj )
+    POP2 POP2 POP2 ( )
+JMP2r
+
+( allocation size is in pages )
+@free_alloc_sz_at_idx ( idx* alloc_sz* -: ) 
+
+    ( python: for jj in range(alloc_sz): )
+    #0000 ( idx alloc_sz jj )
+    &loop
+        GTH2k ( idx alloc_sz jj 01/00 )
+        not ,&done JCN ( break when loop done )
+
+            ( python: clear_bit(idx+jj) )
+            ( idx alloc_sz jj )
+            ROT2 ( alloc_sz jj idx )
+            ADD2k ( alloc_sz jj idx idx+jj )
+            clear_bit ( alloc_sz jj idx )
+            ROT2 ROT2 ( idx alloc_sz jj )
+            INC2 ( idx alloc_sz jj+1 )
+            ,&loop JMP
+
+    ( outside the loop )
+    &done
+    ( idx alloc_sz jj )
+    POP2 POP2 POP2 ( )
+JMP2r
+
+@get_bit ( idx -- bit )
+
+    ( python: byte_idx = idx >> 3 )
+    DUP2 #03 SFT2 ( idx byte_idx )
+
+    ( python: bit_idx = 7-idx-byte_idx<<3 )
+    DUP2 #30 SFT2 ( idx byte_idx byte_idx<<3 )
+    ROT2 ( byte_idx byte_idx<<3 idx )
+    DUP2 ( byte_idx byte_idx<<3 idx idx )
+    ROT2 ( byte_idx idx idx byte_idx<<3 )
+    SUB2 ( byte_idx idx idx-byte_idx<<3 )
+    #0007 ( byte_idx idx idx-byte_idx<<3 0007 )
+    SWP2 ( byte_idx idx 0007 idx-byte_idx<<3 )
+    SUB2 ( byte_idx idx bit_idx  )
+
+    ( python: if byte_idx > N_PAGES-1: )
+    ROT2 ( idx bit_idx byte_idx )
+    DUP2 ( idx bit_idx byte_idx byte_idx )
+    N_PAGES ( idx bit_idx byte_idx byte_idx N_PAGES )
+    #0001 SUB2 ( idx bit_idx byte_idx byte_idx N_PAGES-1 )
+    GTH2 not ,&cont JCN ( idx bit_idx byte_idx )
+        ( python: error=4 )
+        #04 .error STZ 
+    &cont ( idx bit_idx byte_idx )
+
+    ( python: byte = bitmap[byte_idx] )
+    ;bitmap ( idx bit_idx byte_idx bitmap_start_address )
+    ADD2 ( idx bit_idx bitmap_byte_idx_offset_address )
+    LDA ( idx bit_idx byte ) 
+
+    ( python: bit = (byte >> bit_idx) & 0x01 )
+    ROT POP ( idx bit_idx_1b byte )
+    SWP ( idx byte bit_idx_1b )
+    SFT ( idx byte>>bit_idx )
+    #01 AND ( idx bit )
+
+    ( python: return bit )
+    NIP NIP ( bit )
+JMP2r 
+
+@set_bit ( idx -- )
+
+    ( python: byte_idx = idx >> 3 )
+    DUP2 #03 SFT2 ( idx byte_idx )
+
+    ( bit_idx = 7 - idx + [byte_idx<<3] )
+    DUP2 #30 SFT2 ( idx byte_idx byte_idx<<3 )
+    ROT2 ( byte_idx byte_idx<<3 idx )
+    DUP2 ( byte_idx byte_idx<<3 idx idx )
+    #0007 ( byte_idx byte_idx<<3 idx idx 0007 )
+    SWP2 ( byte_idx byte_idx<<3 idx 0007 idx )
+    SUB2 ( byte_idx byte_idx<<3 idx 0007-idx )
+    ROT2 ( byte_idx idx 0007-idx byte_idx<<3 )
+    ADD2 ( byte_idx idx 0007-idx+byte_idx<<3=bit_idx )
+    
+    ( stack manip )
+    ROT2 ( idx bit_idx byte_idx )
+
+    ( python: byte = bitmap[byte_idx] )
+    ;bitmap ( idx bit_idx byte_idx bitmap_start_address )
+    ADD2 ( idx bit_idx bitmap_byte_idx_offset_address )
+    LDA ( idx bit_idx byte ; python: byte = bitmap[byte_idx] )
+
+    ( stack manip )
+    #00 SWP ( idx bit_idx byte_2b )
+    ROT2 ( bit_idx byte_2b idx )
+    #03 SFT2 ( bit_idx byte_2b byte_idx )
+    SWP2 ( bit_idx byte_idx byte_2b )
+    ROT2 ( byte_idx byte_2b bit_idx )
+    SWP2 NIP ( byte_idx bit_idx byte )
+    ROT ROT ( byte_idx byte bit_idx )
+
+    ( python: bitmap[byte_idx] = byte | mask_set[bit_idx] )
+    mask_set ( byte_idx byte mask_set[bit_idx] )
+    ORA ( byte_idx [byte|mask_set[bit_idx]] )
+    ROT ROT ( [byte|mask_set[bit_idx]] byte_idx )
+    ;bitmap ADD2 ( new_byte address )
+    STA
+JMP2r
+
+@clear_bit ( idx -- )
+
+    ( python: byte_idx = idx >> 3 )
+    DUP2 #03 SFT2 ( idx byte_idx )
+
+    ( python: bit_idx = 7 - idx + [byte_idx<<3] )
+    DUP2 #30 SFT2 ( idx byte_idx byte_idx<<3 )
+    ROT2 ( byte_idx byte_idx<<3 idx )
+    DUP2 ( byte_idx byte_idx<<3 idx idx )
+    #0007 ( byte_idx byte_idx<<3 idx idx 0007 )
+    SWP2 ( byte_idx byte_idx<<3 idx 0007 idx )
+    SUB2 ( byte_idx byte_idx<<3 idx 0007-idx )
+    ROT2 ( byte_idx idx 0007-idx byte_idx<<3 )
+    ADD2 ( byte_idx idx 0007-idx+byte_idx<<3=bit_idx )
+
+    ( stack manip )
+    ROT2 ( idx bit_idx byte_idx )
+
+    ( python: byte = bitmap[byte_idx] )
+    ;bitmap ( idx bit_idx byte_idx bitmap_start_address )
+    ADD2 ( idx bit_idx bitmap_byte_idx_offset_address )
+    LDA ( idx bit_idx byte )
+
+    ( stack manip )
+    #00 SWP ( idx bit_idx byte_2b )
+    ROT2 ( bit_idx byte_2b idx )
+    #03 SFT2 ( bit_idx byte_2b byte_idx )
+    SWP2 ( bit_idx byte_idx byte_2b )
+    ROT2 ( byte_idx byte_2b bit_idx )
+    SWP2 NIP ( byte_idx bit_idx byte )
+    ROT ROT ( byte_idx byte bit_idx )
+
+    ( python: bitmap[byte_idx] = byte & mask_clear[bit_idx] )
+    mask_clear ( byte_idx byte mask_clear[bit_idx] )
+    AND ( byte_idx [byte&mask_clear[bit_idx]] )
+    ROT ROT ( [byte&mask_clear[bit_idx]] byte_idx )
+    ;bitmap ADD2 ( new_byte address )
+    STA
+JMP2r
+
+@mask_clear ( bit_idx* -: mask )
+.bit_idx STZ2 #ff [ #01 .bit_idx LDZ2 NIP #40 SFT SFT ] EOR
+JMP2r
+
+@mask_set ( bit_idx* -: mask )
+.bit_idx STZ2
+#01 .bit_idx LDZ2 NIP #40 SFT SFT
+JMP2r
+
+( ==================================================== )
+( Functions for handling the allocation dictionary )
+( Also contains the map of allocated pointers and their sizes )
+~allocation-map.tal
+( ==================================================== )
+( Functions for printing )
+~fmt-print.tal
+~print-extra.tal
+( ==================================================== )
+( This resets memory, allocated and n_allocs for test purposes )
+@reset
+    #00 .error STZ
+    #0000 ;n_allocs STA2
+    clear-bitmap
+    clear-allocation
+    clear-vmem
+
+@clear-bitmap
+#0000 ,&idx STR2
+&loop
+,&idx LDR2 N_PAGES #03 SFT2 EQU2 ,&done JCN
+#00 ,&idx LDR2 ;bitmap ADD2 STA
+,&idx LDR2 INC2 ,&idx STR2
+,&loop JMP
+&done
+JMP2r
+&idx $2
+
+@clear-vmem
+#0000 ,&idx STR2
+&loop
+,&idx LDR2 MAX_ALLOC_SZ EQU2 ,&done JCN
+#00 ,&idx LDR2 ;vmem ADD2 STA
+,&idx LDR2 INC2 ,&idx STR2
+,&loop JMP
+&done
+JMP2r
+&idx $2
+( ==================================================== )
+( For debugging )
+@print-bitmap
+#0000 ,&idx STR2
+&loop
+,&idx LDR2 #0040 EQU2 ,&done JCN
+,&idx LDR2 ;bitmap ADD2 LDA print8-dec ws
+,&idx LDR2 INC2 ,&idx STR2
+,&loop JMP
+&done
+JMP2r
+&idx $2
+
+@print-allocated
+#0000 ,&idx STR2
+&loop
+,&idx LDR2 #0080 EQU2 ,&done JCN
+,&idx LDR2 ;allocated ADD2 LDA2 print16-dec ws
+,&idx LDR2 ;allocated ADD2 #0002 ADD2 LDA2 print16-dec ws
+,&idx LDR2 #0004 ADD2 ,&idx STR2
+,&loop JMP
+&done
+JMP2r
+&idx $2
+( ==================================================== )
+( b :- not_b )
+@not #01 SWP SUB JMP2r
+( ==================================================== )
+( Functions for error handling )
+
+@report-error ( erc -- )
+    #00 SWP #0002 MUL2 ;errors ADD2 LDA2 JSR2
+    JMP2r
+
+@get-error
+    .error LDZ
+    JMP2r
+
+( error strings )
+@errors =no-error =null-ptr =invalid-ptr =invalid-access =outside-page =max-alloc =ptr-not-alloc =alloc-too-large
+( errors )
+( 0 )
+@no-error JMP2r
+( 1 )
+@null-ptr { 000c "Null 20 "pointer } STH2r !print-str
+( 2 )
+@invalid-ptr { 000f "Invalid 20 "pointer } STH2r !print-str
+( 3 )
+@invalid-access { 000f "Invalid 20 "access: } STH2r !print-str
+( 4 )
+@outside-page { 0016 "Outside 20 "of 20 "page 20 "range: } STH2r !print-str
+( 5 )
+@max-alloc { 0021 "Max 20 "number 20 "of 20 "allocations 20 "reached } STH2r !print-str
+( 6 )
+@ptr-not-alloc { 0019 "Pointer 20 "was 20 "not 20 "allocated } STH2r !print-str
+( 7 )
+@alloc-too-large { 0014 "Allocation 20 "too 20 "large  } STH2r !print-str
+
+( END of functions for error handling )
+( ==================================================== )
+
+( Constants )
+@PAGE_SZ ( -: a* ) #0010 JMP2r ( We allocate 16 bytes per page )
+@N_PAGES ( -: a* ) #0100 JMP2r ( We have a total of 256 pages, so we can allocate at most 4kB )
+@DMEM_START ( -: a* ) #f000 JMP2r ( Start at 60*1024 )
+@MAX_N_ALLOCS ( -: a* ) #0020 JMP2r ( We can allocate at most 32 regions )
+@MAX_ALLOC_SZ ( -: a* )  
+PAGE_SZ N_PAGES MUL2
+JMP2r
+( Counter to track number of allocations )
+( The allocation map is in allocation-map.tal )
+@n_allocs 0000
+
+ ( N_PAGES bits, packed in bytes mean N_PAGES/8 entries, so with the above, the bitmap will take 32 bytes )
+ ( 0 means free )
+@bitmap $20
+
+( The allocation happens below this )
+|f000
+@vmem

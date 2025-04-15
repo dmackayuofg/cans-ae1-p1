@@ -1,0 +1,9 @@
+(
+ Dynamic memory allocation using pages, a bitmap and an allocation map
+)
+
+|0000
+@bit_idx $2
+( I suggest you use the zero page for temporary storage )
+( all your allocations here )
+@error $1 ( this should be last )
